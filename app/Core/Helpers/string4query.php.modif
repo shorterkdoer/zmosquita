@@ -1,0 +1,123 @@
+<?php
+
+function str4qry(array $tables, 
+        array $fields, 
+        array $acciones, 
+        string $filter, 
+        string $joinconditions, 
+        array $order,
+        string $id_field):string 
+{
+/* previo al cambio propuesto por el tío   
+    $str_fields = '';
+    foreach ($fields as $key => $field) {
+        if (!empty($field['hidden'])) {
+            continue;
+        }
+        $str_fields .= $key . ', ';
+
+    }
+*/
+
+ $str_fields = '';
+    foreach ($fields as $key => $field) {
+        if (!empty($field['hidden'])) {
+            continue;
+        }
+
+        // 1) Campo calculado: type => 'calculated' con 'calc' o 'sql'
+        if (
+            (isset($field['type']) && $field['type'] === 'calculated') &&
+            (!empty($field['calc']) || !empty($field['sql']))
+        ) {
+            $expr  = !empty($field['calc']) ? $field['calc'] : $field['sql'];
+            $alias = $field['nombre'] ?? $key;
+            $str_fields .= "($expr) AS {$alias}, ";
+            continue;
+        }
+
+        // 2) Campo con tabla/columna definidos
+        if (!empty($field['tabla']) && !empty($field['columna'])) {
+            $alias = $field['nombre'] ?? $field['columna'];
+            $str_fields .= "{$field['tabla']}.{$field['columna']} AS {$alias}, ";
+            continue;
+        }
+
+        // 3) Campo con 'nombre' directo
+        if (!empty($field['nombre'])) {
+            // si viene 'alias' explícito lo respetamos, si no usamos el mismo nombre
+            $alias = $field['alias'] ?? $field['nombre'];
+            if ($alias !== $field['nombre']) {
+                $str_fields .= "{$field['nombre']} AS {$alias}, ";
+            } else {
+                $str_fields .= "{$field['nombre']}, ";
+            }
+            continue;
+        }
+
+        // 4) Fallback legacy: el key ya es una expresión lista para el SELECT
+        $str_fields .= $key . ', ';
+    }
+    //$buttons = '';
+
+    $buttons = '';
+     
+    foreach ($acciones as $key => $clave) {
+        if ($clave['url_params']) {
+
+
+            $localparams = $clave['param_field'];
+
+            $xxsql = "concat('<a href=\"". trim($clave['url']) . "/', $localparams , '\"' , ' class=\"{$clave['class']}\" data-toggle=\"modal\">";
+            //$xxsql .=  $clave['text'] . "</a>') as " . $key .", ";
+            $xxsql .= "<span class=\"". $clave['icon'] ."\"></span>". $clave['text'] . "</a>') as {$clave['text']}, ";
+//            $xxsql .= "<span class=\"{$clave['icon']}\"></span> {$clave['text']}</a>') as {$clave['text']}, ";
+        } else {
+            $xxsql = "concat('<a href=\"". trim($clave['url']) . "\" class=\"{$clave['class']}\" data-toggle=\"modal\">";
+            //$xxsql .=  $clave['text'] . "</a>') as " . $key .", ";
+            $xxsql .= "<span class=\"". $clave['icon'] ."\"></span>". $clave['text'] . "</a>') as {$clave['text']}, ";
+        }
+        $buttons .= $xxsql;
+
+    }
+ 
+	if($buttons == '') $str_fields = rtrim($str_fields, ', ');
+
+    $str_fields2 = '';
+    if($str_fields2 == '') $buttons = rtrim($buttons, ', ');
+
+    $str_from = '';
+    foreach ($tables as $table) {
+        $str_from .= $table . ', ';
+    }
+    $str_from = rtrim($str_from, ', ');
+    
+    $str_join = $joinconditions;
+    $str_order = '';
+    if (!empty($order)) {
+        $str_order = ' ORDER BY ';
+        foreach ($order as $ord) {
+            $str_order .= $ord . ', ';
+        }
+        $str_order = rtrim($str_order, ', ');
+    }
+
+    $where = '';
+
+    if ($str_join && $filter) {
+        $where = "WHERE $str_join AND $filter";
+    } elseif ($str_join) {
+        $where = "WHERE $str_join";
+    } elseif ($filter) {
+        $where = "WHERE $filter";
+    }
+    // Y luego:
+    $queryres = "SELECT " . $str_fields . $buttons . $str_fields2 ." FROM " . $str_from . " " . $where . " ". $str_order;
+
+
+    return $queryres;
+}
+
+
+
+?>

@@ -1,0 +1,185 @@
+<?php    //index view
+return [    'config' => 
+                [
+                    'titulo' => 'Agenda de citas',
+                    'subtitulo' => '',
+                    'field_id' => 'id',
+                    'tipo' => 'table',
+                    'action' => '',
+                    'url_action' => '',
+                    'method' => '',
+                    'divname' => 'agendadecitasFrm',
+                    'url_data' => '/api/agenda/data',
+                    'link_id' => 'a.id',
+                ],
+					
+            'QrySpec' => 
+				[
+                'tables' => [ 'datospersonales da', 'agendadecitas a'  ], //, 'datospersonales df' 
+                'joincond' => 'a.matriculado = da.user_id ', //  ' ,
+                'filter' => '',
+                /*(not (m.freezedata is null)) '.
+                        'and (m.verificado is not null) '.
+                        'and (m.aprobado is null) and (m.baja is null)',*/
+                'order' => ['fecha DESC '],
+				],
+            'comandos' => 
+				[
+                'Nueva' => [
+                    'text' => 'Nueva cita',
+                    'url' => '/agendadecitas/create' , 
+                    'icon' => 'bi bi-add',
+                    'class' => 'btn btn-primary',
+                    'url_id' => false,
+                    ],
+
+				],
+            'campos' => [
+                'id' => [
+                    'nombre' => 'id',
+                    'type' => 'text',
+                    'label' => 'ID',
+                    'readonly' => true,
+                    'hidden' => true,
+                    'class' => 'form-control',
+                ],
+                'fecha' => [
+                    'nombre' => 'fecha',
+                    'type' => 'date',
+                    'label' => 'Fecha',
+                    'readonly' => true,
+                    'hidden' => false,
+                    'class' => 'form-control',
+                ],
+
+
+                'hora' => [
+                    'nombre' => 'hora',
+                    'type' => 'time',
+                    'label' => 'Hora',
+                    'searchable' => true,
+                    'maxlength' => 255,
+                    'readonly' => true,
+                    'hidden' => false,
+                    'required' => true,
+                    'placeholder' => 'hora',
+                    'help' => 'Ingresehora',
+                    'class' => 'form-control',
+                    'style' => 'width: 100%;',
+                    'autocomplete' => 'off',
+                    //'pattern' => '[A-Za-z0-9 ]{1,255}'
+                ],
+/*
+                'nombrefuncionario' => [
+                    'nombre' => 'nombrefuncionario',
+                    'type' => 'calc',
+                    'label' => 'Funcionario',
+                    'searchable' => true,
+                    'maxlength' => 255,
+                    'readonly' => true,
+                    'hidden' => false,
+                    'required' => true,
+                    'placeholder' => 'Nombres',
+                    'help' => '',
+                    'class' => 'form-control',
+                    'style' => 'width: 100%;',
+                    'autocomplete' => 'off',
+                    'pattern' => '[A-Za-z0-9 ]{1,255}',
+                    'options' => 
+                    [
+                    'datasource'   => 'df',
+                        'id_field'     => 'user_id',
+                        'mostrarcampo' => ['apellido','nombre'], // sumá campos a gusto
+                        'separator'    => [', '],
+                    ],
+                ],
+*/
+
+                'Profesional' => [
+                    'nombre' => 'Profesional',
+                    'type' => 'calc',
+                    'label' => 'Profesional',
+                    'searchable' => true,
+                    'maxlength' => 255,
+                    'readonly' => true,
+                    'hidden' => false,
+                    'required' => true,
+                    'placeholder' => 'Profesional',
+                    'help' => '',
+                    'class' => 'form-control',
+                    'style' => 'width: 100%;',
+                    'autocomplete' => 'off',
+                    'pattern' => '[A-Za-z0-9 ]{1,255}',
+                    'options' => 
+                            [
+                            'datasource'   => 'da',
+                            'id_field'     => 'user_id',
+                            'mostrarcampo' => ['apellido','nombre'], // sumá campos a gusto
+                            'separator'    => [', '],
+                            ],
+                    ],
+
+                    ],
+            'actividades' => [
+                'Datos' => [
+                    'text' => 'Datos',
+                    'url' => '/vercita',  // Removed trailing slash
+                    'url_params' => true, // Indicates that the URL will include the ID
+                    'param_field' => 'a.id', // Specify the field to use as a parameter
+                    'icon' => 'bi bi-eye',
+                    'newpage' => true, // Indicates that this button opens in a new page
+                    'class' => 'btn btn-warning'
+                ],
+                'Borrar' => [
+                    'text' => 'Borrar',
+                    'url' => '/borrarcita',  //                /matricula/admin_view    Also removed trailing slash for consistency
+                    'url_params' => true, // Indicates that the URL will include the ID
+                    'param_field' => 'a.id', // Specify the field to use as a parameter
+                    'icon' => 'bi bi-paperclip',
+                    'newpage' => true, // Indicates that this button opens in a new page
+                    'class' => 'btn btn-primary'
+                ],
+/*
+                'Verificador' => [
+                    'text' => 'Resultado',
+                    'url' => '/verificacion',  //                /matricula/admin_view    Also removed trailing slash for consistency
+                    'url_params' => true, // Indicates that the URL will include the ID
+                    'param_field' => 'd.user_id', // Specify the field to use as a parameter
+                    'icon' => 'bi bi-credit-card-2-front-fill', //<i class="bi-credit-card-2-front-fill"></i>
+                    'newpage' => true, // Indicates that this button opens in a new page
+                    'class' => 'btn btn-primary'
+                ],
+*/
+/*
+                'Quitar' => [
+                    'text' => 'Quitar',
+                    'url' => '/quitarcita',  //                /matricula/admin_view    Also removed trailing slash for consistency
+                    'url_params' => true, // Indicates that the URL will include the ID
+                    'param_field' => 'd.user_id', // Specify the field to use as a parameter
+                    'icon' => 'bi bi-x-octagon-fill', //<i class="bi-credit-card-2-front-fill"></i>
+                    'newpage' => true, // Indicates that this button opens in a new page
+                    'class' => 'btn btn-primary'
+
+                ],
+*/
+            ],
+
+            'buttons' => [
+                'cancel' => [
+                    'type' => 'button',
+                    'text' => 'Volver',
+                    'url' => '',
+                    'class' => 'btn btn-outline-secondary btn-rounded',
+                    'icon' => 'bi bi-arrow-left',
+                    'backbutton' => true, // para que funcione el botón de volver
+
+                ],
+                ],
+];
+
+
+
+
+
+
+

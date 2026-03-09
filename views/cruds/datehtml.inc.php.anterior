@@ -1,0 +1,39 @@
+<?php
+
+function buildDateInput($name, $value = '', $class = '', $placeholder = '', $required = false, 
+    $readonly = false, $min = '', $max = '') {
+    
+    return '<div class="mb-3">
+  <label for="' . htmlspecialchars($name) . '" class="form-label">'.$name.'</label>
+    <input type="date" 
+            id="' . htmlspecialchars($name) . '" 
+            name="' . htmlspecialchars($name) . '" 
+            value="' . htmlspecialchars($value) . '" 
+            class="' . htmlspecialchars($class) . '" 
+            placeholder="' . htmlspecialchars($placeholder) . '" 
+            ' .  'readonly'  . ' 
+            ' . ($required ? 'required' : '') . ' 
+            min="' . htmlspecialchars($min) . '" 
+            max="' . htmlspecialchars($max) . '"
+            onkeydown="return false" 
+            onpaste="return false" 
+        inputmode="none"  
+  >
+
+</div>
+';
+}
+
+
+
+/*
+
+<input type="date" id="<?= $this->e($f['nombre']) ?>" 
+                    name="<?= $this->e($f['nombre']) ?>" 
+                    value="<?= $this->e($values[$f['nombre']] ?? '') ?>" 
+                    class="<?= $this->e($f['class']) ?>" 
+                    <?php echo ($this->e($f['readonly']== true)) ? 'readonly' : '' ; ?>
+                    <?= !empty($f['required']) ? 'required' : '' ?> >
+*/
+
+?>

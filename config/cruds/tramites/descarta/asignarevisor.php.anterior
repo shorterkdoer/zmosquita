@@ -1,0 +1,154 @@
+<?php    //index view
+return [    'config' => 
+                [
+                    'titulo' => 'Asignación de Revisor - primera fase',
+                    'subtitulo' => 'Control de documentación y asignación de matrícula',
+                    'field_id' => 'id',
+                    'tipo' => 'form',
+                    'subtitle' => 'Inscriptos',
+                    'action' => '',
+                    'url_action' => '',
+                    'method' => 'POST',
+                    'divname' => 'AsignarRevisor',
+                    'url_data' => '/revisorasignado',
+                    'link_id' => 'm.user_id',
+                ],
+					
+            'comandos' => 
+				[
+				],
+            'campos' => [
+                'd.id' => [
+                    'nombre' => 'id',
+                    'type' => 'text',
+                    'label' => 'ID',
+                    'readonly' => true,
+                    'hidden' => true,
+                    'class' => 'form-control',
+                ],
+
+
+                'matriculaministerio' => [
+                    'nombre' => 'matriculaministerio',
+                    'type' => 'text',
+                    'label' => 'matriculaministerio',
+                    'searchable' => true,
+                    'maxlength' => 255,
+                    'readonly' => true,
+                    'hidden' => false,
+                    'required' => true,
+                    'placeholder' => 'matriculaministerio',
+                    'help' => 'Ingrese matriculaministerio',
+                    'class' => 'form-control',
+                    'style' => 'width: 100%;',
+                    'autocomplete' => 'off',
+                    'pattern' => '[A-Za-z0-9 ]{1,255}'
+                ],
+
+                'nombre' => [
+                    'nombre' => 'nombre',
+                    'type' => 'text',
+                    'label' => 'Nombre',
+                    'searchable' => true,
+                    'maxlength' => 255,
+                    'readonly' => true,
+                    'hidden' => false,
+                    'required' => true,
+                    'placeholder' => 'Nombres',
+                    'help' => 'Ingrese el nombre',
+                    'class' => 'form-control',
+                    'style' => 'width: 100%;',
+                    'autocomplete' => 'off',
+                    'pattern' => '[A-Za-z0-9 ]{1,255}'
+                ],
+                'apellido' => [
+                    'nombre' => 'apellido',
+                    'type' => 'text',
+                    'label' => 'Apellido',
+                    'searchable' => true,
+                    'sortable' => true,
+                    'maxlength' => 255,
+                    'readonly' => true,
+                    'hidden' => false,
+                    'required' => true,
+                    'placeholder' => 'Apellido',
+                    'help' => 'Ingrese apellido',
+                    'class' => 'form-control',
+                    'style' => 'width: 100%;',
+                    'autocomplete' => 'off',
+                    'pattern' => '[A-Za-z0-9 ]{1,255}'
+                ],
+                'celular' => [
+                    'nombre' => 'celular',
+                    'type' => 'text',
+                    'label' => 'Celular',
+                    'searchable' => true,
+                    'sortable' => true,
+                    'maxlength' => 255,
+                    'readonly' => true,
+                    'hidden' => false,
+                    'required' => false,
+                    'placeholder' => 'Celular',
+                    'help' => 'Ingrese celular',
+                    'class' => 'form-control',
+                    'style' => 'width: 100%;',
+                    'autocomplete' => 'off',
+                    'pattern' => '[0-9]{1,255}'
+                ],
+
+                'user_id' => [
+                    'nombre' => 'user_id',
+                    'type' => 'text',
+                    'label' => 'ID',
+                    'readonly' => true,
+                    'hidden' => true,
+                    'class' => 'form-control',
+                ],
+                'interviniente' => [
+                    'nombre' => 'interviniente',
+                    'type' => 'text',
+                    'label' => 'Interviniente',
+                    'searchable' => true,
+                    'sortable' => true,
+                    'maxlength' => 255,
+                    'readonly' => true,
+                    'hidden' => false,
+                    'required' => true,
+                    'placeholder' => 'Interviniente',
+                    'help' => 'Ingrese interviniente',
+                    'class' => 'form-control',
+                    'style' => 'width: 100%;',
+                    'autocomplete' => 'off',
+                    'pattern' => '[A-Za-z0-9 ]{1,255}'
+                ],
+                'interviniente_nombre' => [
+                    'nombre' => 'interviniente_nombre',
+                    'type' => 'text',
+                    'label' => 'Intervendrá',
+                    'readonly' => true,
+                    'hidden' => false,
+                    'class' => 'form-control',
+                ],
+
+                    ],
+
+
+            'buttons' => [
+                'cancel' => [
+                    'type' => 'button',
+                    'text' => 'Volver',
+                    'url' => '',
+                    'class' => 'btn btn-outline-secondary btn-rounded',
+                    'icon' => 'bi bi-arrow-left',
+                    'backbutton' => true, // para que funcione el botón de volver
+
+                ],
+        ],
+];
+
+
+
+
+
+
+

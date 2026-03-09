@@ -1,0 +1,18 @@
+Diferencias detectadas entre 'copro6' y 'copro6testing':
+
+TABLA NUEVA: cargos
+CAMBIO EN COLUMNA: comprobantespago.comprobante
+CAMBIO EN COLUMNA: comprobantespago.fecha
+CAMBIO EN COLUMNA: comprobantespago.created_at
+CAMBIO EN COLUMNA: comprobantespago.updated_at
+TABLA NUEVA: config
+TABLA NUEVA: debitoconcepto
+TABLA NUEVA: document_bindings
+TABLA NUEVA: document_templates
+TABLA NUEVA: document_text_boxes
+TABLA NUEVA: mailslog
+COLUMNA NUEVA: matriculas.comisionotorgante
+COLUMNA NUEVA: matriculas.funcionario
+COLUMNA NUEVA: matriculas.carnet
+TABLA NUEVA: mediosdepago
+COLUMNA NUEVA: users.cargo_id

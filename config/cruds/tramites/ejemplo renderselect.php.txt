@@ -1,0 +1,10 @@
+'options' =>
+[
+    'id_field'     => 'id',
+    'mostrarcampo' => ['apellido','nombre','dni'], // sumá campos a gusto
+    'separator'    => ', ',
+    'where'        => 'es_funcionario = :act',
+    'params'       => [':act' => 1],
+    'order_by'     => 'label',
+    'collate'      => 'utf8mb4_spanish_ci',
+]
