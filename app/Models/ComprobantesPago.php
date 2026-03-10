@@ -35,33 +35,22 @@ class ComprobantesPago extends Model
 
     public static function miscomprobantes(int $userid): ?array
     {
-        /*
         $db = self::getDB();
         $stmt = $db->prepare("SELECT * FROM comprobantespago WHERE user_id = ?");
         $stmt->execute([$userid]);
-        //$stmt = $db->prepare("SELECT id, user_id, comprobante, fecha, observaciones FROM comprobantespago WHERE user_id =  ".$userid);
-        //$stmt->execute();
-        $comprob_user = $stmt->fetch();
-        //$comprob_user = json_encode(["data" => [$comprob_user] ]);
-*/
-        $db = self::getDB();
-        $stmt = $db->prepare("SELECT * FROM comprobantespago WHERE user_id = " . $userid);
-        $stmt->execute();
         $comprob_user = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         return $comprob_user ? $comprob_user : null;
-//$comprob_user ? $comprob_user : null;
     }
 
     public static function informopagos(int $userid): ?array
     {
         $db = self::getDB();
-        $stmt = $db->prepare("SELECT * FROM comprobantespago WHERE user_id = " . $userid);
-        $stmt->execute();
+        $stmt = $db->prepare("SELECT * FROM comprobantespago WHERE user_id = ?");
+        $stmt->execute([$userid]);
         $comprob_user = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         return $comprob_user ? $comprob_user : null;
-//$comprob_user ? $comprob_user : null;
     }
 
     public static function meses(): ?array

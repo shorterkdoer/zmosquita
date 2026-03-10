@@ -29,8 +29,8 @@ class DatosPersonales extends Model
     {
         $db = self::getDB();
 
-        $stmt = $db->query("SELECT * FROM datospersonales WHERE user_id = ". $id);
-        //$stmt->execute();
+        $stmt = $db->prepare("SELECT * FROM datospersonales WHERE user_id = ?");
+        $stmt->execute([$id]);
         $legajo = $stmt->fetch();
         return $legajo ? $legajo : null;
     }
@@ -38,26 +38,27 @@ class DatosPersonales extends Model
     public static function findByUserIdWithRole(int $id): ?array
     {
         $db = self::getDB();
-        $stmt = $db->query("SELECT d.*, u.role FROM datospersonales d, users u WHERE d.user_id = ". $id . " and d.user_id = u.id");
-        //$stmt->execute([$id]);
+        $stmt = $db->prepare("SELECT d.*, u.role FROM datospersonales d, users u WHERE d.user_id = ? AND d.user_id = u.id");
+        $stmt->execute([$id]);
         $legajo = $stmt->fetch();
         return $legajo ? $legajo : null;
     }
 
 
     public static function updatebyUser(int $userId, array $data): bool
-    
+
     {
             $set = [];
             foreach ($data as $column => $value) {
                 $set[] = "$column = ?";
             }
             $setClause = implode(', ', $set);
-    
-            $stmt = self::getDB()->prepare("UPDATE " . static::$table . " SET $setClause WHERE user_id = $userId" );
+
+            $stmt = self::getDB()->prepare("UPDATE " . static::$table . " SET $setClause WHERE user_id = ?");
             $values = array_values($data);
-            
-    
+            $values[] = $userId;
+
+
             return $stmt->execute($values);
     }
     
@@ -124,8 +125,8 @@ class DatosPersonales extends Model
     public static function GetNombreByUserId(int $id): ?string
     {
         $db = self::getDB();
-        $stmt = $db->prepare("SELECT concat(apellido, ' ', nombre) as nombre_completo FROM datospersonales WHERE user_id =" . $id);
-        $stmt->execute([]);
+        $stmt = $db->prepare("SELECT concat(apellido, ' ', nombre) as nombre_completo FROM datospersonales WHERE user_id = ?");
+        $stmt->execute([$id]);
         $person = $stmt->fetch(PDO::FETCH_ASSOC);
         return $person['nombre_completo'] ?: '';
     }

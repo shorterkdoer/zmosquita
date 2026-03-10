@@ -41,9 +41,11 @@ resetFlashMessage();
 
  <div class="form-group">
 <form action="/password/forgot" method="POST" class="mx-auto" style="max-width: 400px;">
- 
 
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+    <?php
+    use App\Core\CSRF;
+    echo CSRF::tokenField();
+    ?>
 
     <!-- Email -->
     <div class="mb-3">

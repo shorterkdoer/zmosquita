@@ -3,13 +3,21 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-//use ParagonIE\AntiCSRF\AntiCSRF;
 
-// Start session
+use App\Core\CSRF;
+
+// Start session with secure configuration
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    session_start([
+        'cookie_httponly' => true,
+        'cookie_secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'cookie_samesite' => 'Strict',
+        'use_strict_mode' => true,
+    ]);
 }
-//$csrf = new AntiCSRF();
+
+// Initialize CSRF protection
+CSRF::getInstance();
 
 // Set base directory
 

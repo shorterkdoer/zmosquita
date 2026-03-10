@@ -10,6 +10,7 @@ use App\Core\Session;
 use App\Models\User;
 use App\Models\Comision;
 use App\Controllers\ComisionController;
+use App\Core\CSRF;
 
 // Ensure the User model exists in the App\Models namespace
 use App\Core\Controller;
@@ -27,6 +28,15 @@ class AuthController extends Controller
      */
     public function logged(): void
     {
+        // Validate CSRF token
+        try {
+            CSRF::validateOrFail();
+        } catch (\RuntimeException $e) {
+            Session::flash('error', 'Error de validación del formulario. Por favor, recargue e intente nuevamente.');
+            $this->redirect('/login');
+            return;
+        }
+
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -62,6 +72,12 @@ class AuthController extends Controller
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
+
+        // Regenerate session ID to prevent session fixation
+        session_regenerate_id(true);
+
+        // Regenerate CSRF token after login
+        $this->regenerateCSRF();
 
         // Guardar en sesión un array con los datos del usuario
         $_SESSION['user'] = [
@@ -112,6 +128,15 @@ class AuthController extends Controller
     
     public function procedurevision(): void
     {
+        // Validate CSRF token
+        try {
+            CSRF::validateOrFail();
+        } catch (\RuntimeException $e) {
+            Session::flash('error', 'Error de validación del formulario. Por favor, recargue e intente nuevamente.');
+            $this->redirect('/arevision');
+            return;
+        }
+
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -214,7 +239,15 @@ class AuthController extends Controller
      */
     public function register(): void
     {
-        
+        // Validate CSRF token
+        try {
+            CSRF::validateOrFail();
+        } catch (\RuntimeException $e) {
+            Session::flash('error', 'Error de validación del formulario. Por favor, recargue e intente nuevamente.');
+            $this->redirect('/register');
+            return;
+        }
+
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -389,15 +422,15 @@ class AuthController extends Controller
             $config = require $_SESSION['directoriobase'].'/config/settings.php';
 
             $mail->isSMTP();
-            $mail->Host       = $config['MAIL_HOST']; // Cambiá por tu servidor SMTP
+            $mail->Host       = $config['MAIL_HOST'];
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'admisiones@coprobilp.org.ar';            //$config['MAIL_USERNAME'];
-            $mail->Password   = 'S4lt4r4L@B4nc4'; // $config['MAIL_PASSWORD'];
-            $mail->SMTPSecure = $config['MAIL_ENCRYPTION']; // o PHPMailer::ENCRYPTION_SMTPS
-            $mail->Port       = $config['MAIL_PORT']; // Cambiá según tu configuración
+            $mail->Username   = $config['MAIL_USERNAME'];
+            $mail->Password   = $config['MAIL_PASSWORD'];
+            $mail->SMTPSecure = $config['MAIL_ENCRYPTION'];
+            $mail->Port       = $config['MAIL_PORT'];
 
             // Remitente y destinatario
-            $mail->setFrom($mail->Username, $config['MAIL_NOREPLAY_LABEL']);
+            $mail->setFrom($config['MAIL_FROM_ADDRESS'], $config['MAIL_FROM_NAME']);
             $mail->addAddress($email);
 
             // Contenido del correo
@@ -489,6 +522,15 @@ class AuthController extends Controller
  /** 2) Procesa el envío de email con token */
  public function sendForgotPassword()
  {
+     // Validate CSRF token
+     try {
+         CSRF::validateOrFail();
+     } catch (\RuntimeException $e) {
+         Session::flash('error', 'Error de validación del formulario. Por favor, recargue e intente nuevamente.');
+         Response::redirect('/password/forgot');
+         return;
+     }
+
      $email = trim($_POST['email'] ?? '');
      if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
          Session::flash('error', 'Email inválido');
@@ -547,6 +589,15 @@ class AuthController extends Controller
  /** 4) Procesa el cambio de contraseña */
  public function resetPassword()
  {
+     // Validate CSRF token
+     try {
+         CSRF::validateOrFail();
+     } catch (\RuntimeException $e) {
+         Session::flash('error', 'Error de validación del formulario. Por favor, recargue e intente nuevamente.');
+         return Response::redirect("/password/reset/{$_POST['token']}");
+         return;
+     }
+
      $token     = $_POST['token']       ?? '';
      $password  = trim($_POST['password'] ?? '');
      $repPass   = trim($_POST['rep_password'] ?? '');
@@ -627,15 +678,15 @@ class AuthController extends Controller
             $config = require $_SESSION['directoriobase'].'/config/settings.php';
 
             $mail->isSMTP();
-            $mail->Host       = $config['MAIL_HOST']; // Cambiá por tu servidor SMTP
+            $mail->Host       = $config['MAIL_HOST'];
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'admisiones@coprobilp.org.ar';            //$config['MAIL_USERNAME'];
-            $mail->Password   = 'S4lt4r4L@B4nc4'; // $config['MAIL_PASSWORD'];
-            $mail->SMTPSecure = $config['MAIL_ENCRYPTION']; // o PHPMailer::ENCRYPTION_SMTPS
-            $mail->Port       = $config['MAIL_PORT']; // Cambiá según tu configuración
+            $mail->Username   = $config['MAIL_USERNAME'];
+            $mail->Password   = $config['MAIL_PASSWORD'];
+            $mail->SMTPSecure = $config['MAIL_ENCRYPTION'];
+            $mail->Port       = $config['MAIL_PORT'];
 
             // Remitente y destinatario
-            $mail->setFrom($mail->Username, $config['MAIL_NOREPLAY_LABEL']);
+            $mail->setFrom($config['MAIL_FROM_ADDRESS'], $config['MAIL_FROM_NAME']);
             $mail->addAddress('secretaria@coprobilp.org.ar');
 
             // Contenido del correo
@@ -680,15 +731,15 @@ class AuthController extends Controller
             $config = require $_SESSION['directoriobase'].'/config/settings.php';
 
             $mail->isSMTP();
-            $mail->Host       = $config['MAIL_HOST']; // Cambiá por tu servidor SMTP
+            $mail->Host       = $config['MAIL_HOST'];
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'admisiones@coprobilp.org.ar';            //$config['MAIL_USERNAME'];
-            $mail->Password   = 'S4lt4r4L@B4nc4'; // $config['MAIL_PASSWORD'];
-            $mail->SMTPSecure = $config['MAIL_ENCRYPTION']; // o PHPMailer::ENCRYPTION_SMTPS
-            $mail->Port       = $config['MAIL_PORT']; // Cambiá según tu configuración
+            $mail->Username   = $config['MAIL_USERNAME'];
+            $mail->Password   = $config['MAIL_PASSWORD'];
+            $mail->SMTPSecure = $config['MAIL_ENCRYPTION'];
+            $mail->Port       = $config['MAIL_PORT'];
 
             // Remitente y destinatario
-            $mail->setFrom($mail->Username, $config['MAIL_NOREPLAY_LABEL']);
+            $mail->setFrom($config['MAIL_FROM_ADDRESS'], $config['MAIL_FROM_NAME']);
             $mail->addAddress($email);
 
             // Contenido del correo
@@ -736,15 +787,15 @@ class AuthController extends Controller
             $config = require $_SESSION['directoriobase'].'/config/settings.php';
 
             $mail->isSMTP();
-            $mail->Host       = $config['MAIL_HOST']; // Cambiá por tu servidor SMTP
+            $mail->Host       = $config['MAIL_HOST'];
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'admisiones@coprobilp.org.ar';            //$config['MAIL_USERNAME'];
-            $mail->Password   = 'S4lt4r4L@B4nc4'; // $config['MAIL_PASSWORD'];
-            $mail->SMTPSecure = $config['MAIL_ENCRYPTION']; // o PHPMailer::ENCRYPTION_SMTPS
-            $mail->Port       = $config['MAIL_PORT']; // Cambiá según tu configuración
+            $mail->Username   = $config['MAIL_USERNAME'];
+            $mail->Password   = $config['MAIL_PASSWORD'];
+            $mail->SMTPSecure = $config['MAIL_ENCRYPTION'];
+            $mail->Port       = $config['MAIL_PORT'];
 
             // Remitente y destinatario
-            $mail->setFrom($mail->Username, $config['MAIL_NOREPLAY_LABEL']);
+            $mail->setFrom($config['MAIL_FROM_ADDRESS'], $config['MAIL_FROM_NAME']);
             $mail->addAddress($email);
 
             // Contenido del correo

@@ -106,8 +106,10 @@ if (!empty($error)): ?>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
  <div class="form-group">
 <form action="/register" method="POST" class="mx-auto" style="max-width: 400px;">
-    <!-- CSRF Token -->
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+    <?php
+    use App\Core\CSRF;
+    echo CSRF::tokenField();
+    ?>
 
     <!-- Email -->
     <div class="mb-3">

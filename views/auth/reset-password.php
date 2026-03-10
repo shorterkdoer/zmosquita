@@ -51,8 +51,10 @@ $_SESSION['jamm01'] = $variable01;
 
 <div class="form-group">
   <form action="/password/reset" method="POST" class="mx-auto" style="max-width: 400px;">
-    <!-- CSRF Token -->
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+    <?php
+    use App\Core\CSRF;
+    echo CSRF::tokenField();
+    ?>
 
       <input type="hidden" name="token" value="<?= $this->e($token) ?>">
       <div class="mb-3">

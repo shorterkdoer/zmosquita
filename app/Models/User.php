@@ -116,11 +116,11 @@ class User extends Model
     public static function updateRole(int $userId, string $role):bool
     {
         $db = self::getDB();
-        $sql = "UPDATE users SET role = '" . $role . "' WHERE id = " . $userId;
-        
-        $stmt = $db->query($sql);
-        return $stmt->execute();
-         
+        $sql = "UPDATE users SET role = ? WHERE id = ?";
+
+        $stmt = $db->prepare($sql);
+        return $stmt->execute([$role, $userId]);
+
     }
 
         public static function findPending(): ?array

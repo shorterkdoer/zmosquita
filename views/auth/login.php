@@ -37,6 +37,10 @@ $builder->build();
 <div class=".form-group">
     <p class="text-danger"><?= $this->e($error) ?></p>
 <form action="/login" method="POST" class="form-group">
+    <?php
+    use App\Core\CSRF;
+    echo CSRF::tokenField();
+    ?>
     <div class="input-group mb-3">
     <label>Email:
         <input type="email" name="email" required>

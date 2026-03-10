@@ -1,0 +1,51 @@
+# Environment variables - IMPORTANT: Never commit .env to version control
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Vendor directory
+/vendor/
+/vendor-bin/
+
+# Composer files
+composer.lock
+composer.phar
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Cache and logs
+/app/Cache/
+/app/Logs/
+/storage/logs/
+
+# User uploads
+/storage/uploads/
+
+# Session files
+/tmp/
+*.tmp
+
+# Build files
+/build/
+/dist/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Node modules (if any)
+node_modules/
+npm-debug.log
+yarn-error.log

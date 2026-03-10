@@ -52,12 +52,9 @@ class Matricula extends Model
     {
         $db = self::getDB();
         $xfecha = date('Y-m-d'); // Asegúrate de que este campo exista en $data
-        $mysql = "UPDATE " . static::$table . " SET freezedata = '". $xfecha ."'  WHERE user_id = ". $id;
-        $stmt = $db->prepare( $mysql);
-            //$values = array_values($data);
-        return $stmt->execute(); 
-
-
+        $mysql = "UPDATE " . static::$table . " SET freezedata = ? WHERE user_id = ?";
+        $stmt = $db->prepare($mysql);
+        return $stmt->execute([$xfecha, $id]);
     }
 
     public static function statusmatricula(int $id): string
@@ -107,16 +104,10 @@ class Matricula extends Model
             }
 
             $xfecha = $data['aprobado'] ?? null; // Asegúrate de que este campo exista en $data
-            $mysql = "UPDATE " . static::$table . " SET matriculaasignada = ". $xmat . " , aprobado = '" . $xfecha ."'  WHERE user_id = ". $userId;
-            $stmt = $db->prepare( $mysql);
-            //$values = array_values($data);
+            $mysql = "UPDATE " . static::$table . " SET matriculaasignada = ?, aprobado = ? WHERE user_id = ?";
+            $stmt = $db->prepare($mysql);
 
-    
-            return $stmt->execute(); 
-            /* $stmt->execute([ 
-                ':xmat' => $xmat,
-                ':xfec' => $xfecha
-            ]); */
+            return $stmt->execute([$xmat, $xfecha, $userId]);
     }
 
     public static function updatebyUser(int $userId, array $data): bool
@@ -126,11 +117,12 @@ class Matricula extends Model
                 $set[] = "$column = ?";
             }
             $setClause = implode(', ', $set);
-    
-            $stmt = self::getDB()->prepare("UPDATE " . static::$table . " SET $setClause WHERE user_id = $userId" );
+
+            $stmt = self::getDB()->prepare("UPDATE " . static::$table . " SET $setClause WHERE user_id = ?");
             $values = array_values($data);
-            
-    
+            $values[] = $userId;
+
+
             return $stmt->execute($values);
     }
 

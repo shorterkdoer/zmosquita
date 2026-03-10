@@ -369,7 +369,7 @@ public static function calcJSColumns(array $fields, array $acciones): array
         ]);
 
     }
-    public function getRefererPath() 
+    public function getRefererPath()
     {
         if (empty($_SERVER['HTTP_REFERER'])) {
             return null;
@@ -382,6 +382,45 @@ public static function calcJSColumns(array $fields, array $acciones): array
         $query = isset($url_parts['query']) ? '?' . $url_parts['query'] : '';
 
         return $path . $query;
+    }
+
+    /**
+     * Validate CSRF token for POST requests
+     *
+     * Use this method at the beginning of any controller action that handles POST data
+     *
+     * @param string $lockTo Optional lock to a specific value (e.g., username)
+     * @return void
+     * @throws \RuntimeException If token is invalid
+     */
+    protected function validateCSRF(string $lockTo = ''): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            CSRF::validateOrFail($lockTo);
+        }
+    }
+
+    /**
+     * Check if request is POST and CSRF is valid
+     *
+     * @return bool True if POST request with valid CSRF token
+     */
+    protected function isPostWithValidCSRF(): bool
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return false;
+        }
+        return CSRF::validate();
+    }
+
+    /**
+     * Regenerate CSRF token
+     *
+     * Call this after login to prevent session fixation
+     */
+    protected function regenerateCSRF(): void
+    {
+        CSRF::regenerate();
     }
 
 }

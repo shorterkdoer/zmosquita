@@ -7,8 +7,13 @@ include_once $_SESSION['directoriobase'] . '/views/cruds/mailhtml.inc.php';
 $rowcnt = 0;
 ?>
 
-<form action="<?= $this->e($cfg['url_action']) ?>" method="<?= strtoupper($this->e($cfg['method'] ?? 'POST')) ?>" 
+<form action="<?= $this->e($cfg['url_action']) ?>" method="<?= strtoupper($this->e($cfg['method'] ?? 'POST')) ?>"
     class="<?= $this->e($style['class_form']) ?>" enctype="multipart/form-data">
+
+    <?php
+    use App\Core\CSRF;
+    echo CSRF::tokenField();
+    ?>
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
