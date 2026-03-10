@@ -20,10 +20,7 @@ class CSRF
     private static function getInstance(): AntiCSRF
     {
         if (self::$instance === null) {
-            self::$instance = new AntiCSRF([
-                'form_expiration' => 3600, // 1 hour
-                'session_name' => 'csrf_token'
-            ]);
+            self::$instance = new AntiCSRF();
         }
         return self::$instance;
     }

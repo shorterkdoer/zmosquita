@@ -4,6 +4,9 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// Autoload dependencies FIRST
+require_once 'vendor/autoload.php';
+
 use App\Core\CSRF;
 
 // Start session with secure configuration
@@ -16,18 +19,11 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
 }
 
-// Initialize CSRF protection
-CSRF::getInstance();
-
 // Set base directory
 
 $_SESSION['directoriobase'] = __DIR__;
 $_SESSION['base_pathviews'] = $_SESSION['directoriobase'] . '/views';
 $_SESSION['base_url'] = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
-
-
-// Autoload dependencies
-require_once 'vendor/autoload.php';
 
 $dotenv = Dotenv\Dotenv::createImmutable($_SESSION['directoriobase'] . "/");
 $dotenv->load();
