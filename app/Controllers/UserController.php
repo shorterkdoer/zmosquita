@@ -2,9 +2,9 @@
 namespace App\Controllers;
 use App\Models\User;
 use App\Core\Model;
-use App\Core\Session;
+use Foundation\Core\Session;
 
-use App\Core\Request;
+use Foundation\Core\Request;
 use App\Core\Controller;
 use App\Core\Helpers\string4query;
 use PDO;

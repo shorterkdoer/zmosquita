@@ -1,127 +1,108 @@
 <?php
 namespace App\Controllers;
 
-
-
-use App\Core\Request;
-use App\Core\Response;
-use App\Core\Validator;
-
-use App\Core\Session;
-use App\Models\User;
-
-// Ensure the User model exists in the App\Models namespace
 use App\Core\Controller;
+use Foundation\Core\Request;
+use Foundation\Core\Session;
+use App\Services\AdminService;
 
+/**
+ * AdminController - Handles admin dashboard and views
+ *
+ * Refactored to use Service Layer for business logic
+ */
 class AdminController extends Controller
 {
+    protected AdminService $adminService;
 
+    public function __construct()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $this->adminService = new AdminService();
+    }
+
+    /**
+     * Show aspirantes view
+     */
     public function aspirantes(Request $request): void
     {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-    $crudstyle = require $_SESSION['directoriobase'] . '/config/cruds/defaults/crudstyle.php';
-    $style = $crudstyle['style'] ?? [];
-    
-    
-    $cfgedit     = require $_SESSION['directoriobase'] . '/config/cruds/tramites/aspirantes.php';
-    $cfg         = $cfgedit['config']    ?? [];
-    $id_field = $cfgedit['config']['field_id'];
-    $campos = $cfgedit['campos'] ?? [];
-    $actividades = $cfgedit['actividades'] ?? [];
-    $tables = $cfgedit['QrySpec']['tables'] ?? [];
-    $joinconditions = $cfgedit['QrySpec']['joincond'] ?? '';
-    $filter = $cfgedit['QrySpec']['filter'] ?? '';
-    //$filter = ""; //(user_id = " . $_SESSION['user']['id'] . ")
-    $order = $cfgedit['QrySpec']['order'] ?? [];
-    require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
+        $crudstyle = require $_SESSION['directoriobase'] . '/config/cruds/defaults/crudstyle.php';
+        $style = $crudstyle['style'] ?? [];
 
-    $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
+        $cfgedit = require $_SESSION['directoriobase'] . '/config/cruds/tramites/aspirantes.php';
+        $cfg = $cfgedit['config'] ?? [];
+        $id_field = $cfgedit['config']['field_id'];
+        $campos = $cfgedit['campos'] ?? [];
+        $actividades = $cfgedit['actividades'] ?? [];
+        $tables = $cfgedit['QrySpec']['tables'] ?? [];
+        $joinconditions = $cfgedit['QrySpec']['joincond'] ?? '';
+        $filter = $cfgedit['QrySpec']['filter'] ?? '';
+        $order = $cfgedit['QrySpec']['order'] ?? [];
 
-    //$resultset = ComprobantesPago::CustomQry($query);
+        require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
 
-    $this->pendingquery = $query; // Guardamos la consulta pendiente para usarla en el script JS
-    $jscampos = [];
+        $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
+        $this->pendingquery = $query;
 
-    
-    require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/noaliascampos.php';
-    $jscampos = quitaaliascampos($campos); // Eliminamos los alias de los campos para que se muestren correctamente en el script JS
-    $this->pendingcolumns = json_encode($jscampos); // Guardamos los campos pendientes para usarlos en el script JS
-    // $this->pendingcolumns = $campos;
+        require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/noaliascampos.php';
+        $jscampos = quitaaliascampos($campos);
+        $this->pendingcolumns = json_encode($jscampos);
 
-    $comandos = $cfgedit['comandos'] ?? [];
-    $buttons = $cfgedit['buttons'] ?? [];
-        // Ejecuta la consulta y obtiene los datos
+        $comandos = $cfgedit['comandos'] ?? [];
+        $buttons = $cfgedit['buttons'] ?? [];
 
-    $datos = ComprobantesPago::CustomQry($query);
-    $zcolumns =  Self::mkcolumns($jscampos, $actividades);
-    $zcolumns =   trim(stripslashes($zcolumns), '"');
-    $this->pendingcolumns = $zcolumns; // Guardamos las columnas pendientes para usarlas en el script JS
-    $this->view('cruds/index', [
-            'cfg'      => $cfg,
-            'fields'   => $jscampos,     // <— coherente con index/create
-            'style'    => $style,
-            'values'   => $datos,       // array simple con claves=>valores
-            'actions'  => $actividades,
+        $datos = $this->adminService->customQuery($query);
+        $zcolumns = Self::mkcolumns($jscampos, $actividades);
+        $zcolumns = trim(stripslashes($zcolumns), '"');
+        $this->pendingcolumns = $zcolumns;
+
+        $this->view('cruds/index', [
+            'cfg' => $cfg,
+            'fields' => $jscampos,
+            'style' => $style,
+            'values' => $datos,
+            'actions' => $actividades,
             'comandos' => $comandos,
-            'buttons'  => $buttons,
-            'divname' => $cfg['divname'],            
-            'id'      => 'id',
+            'buttons' => $buttons,
+            'divname' => $cfg['divname'],
+            'id' => 'id',
             'link_id' => 'user_id',
             'scriptjs_data' => $this->pendingquery,
             'scriptjs_columns' => $this->pendingcolumns,
             'zcolumns' => $zcolumns,
-            'url_data' => $_SESSION['base_url']. $cfg['url_data'],
+            'url_data' => $_SESSION['base_url'] . $cfg['url_data'],
             'user_id' => $_SESSION['user']['id'],
         ]);
     }
 
-
-
+    /**
+     * Return aspirantes data as JSON
+     */
     public function dataaspirantes(Request $request): void
     {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
+        $cfgedit = require $_SESSION['directoriobase'] . '/config/cruds/tramites/aspirantes.php';
+        $resultset = $this->adminService->getAspirantes($cfgedit);
 
-    // 1) Informa errores
+        $results = [
+            "sEcho" => 1,
+            "iTotalRecords" => count($resultset),
+            "iTotalDisplayRecords" => count($resultset),
+            "aaData" => $resultset
+        ];
 
-    // 2) Inicia sesión si es necesario
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+        header('Content-Type: application/json');
+        echo json_encode($results);
+        exit;
     }
-
-    $crudstyle = require $_SESSION['directoriobase'] . '/config/cruds/defaults/crudstyle.php';
-    $style = $crudstyle['style'] ?? [];
-
-    $cfgedit     = require $_SESSION['directoriobase'] . '/config/cruds/tramites/aspirantes.php';
-    $id_field = $cfgedit['config']['field_id'];
-
-    $campos = $cfgedit['campos'] ?? [];
-    $actividades = $cfgedit['actividades'] ?? [];
-    $tables = $cfgedit['QrySpec']['tables'] ?? [];
-    $joinconditions = $cfgedit['QrySpec']['joincond'] ?? '';
-    $filter = $cfgedit['QrySpec']['filter'] ?? '';
-    //$filter = "(user_id = " . $_SESSION['user']['id'] . ")";
-    $order = $cfgedit['QrySpec']['order'] ?? [];
-    require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
-    $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
-    $resultset = ComprobantesPago::CustomQry($query);
-
-    $results = [
-        "sEcho" => 1,
-        "iTotalRecords" => count($resultset),
-        "iTotalDisplayRecords" => count($resultset),
-        "aaData" => $resultset
-    ];
-
-    header('Content-Type: application/json');
-    echo json_encode($results);
-    exit;
-
-
-
-    }
-
-
 }

@@ -3,9 +3,9 @@
 namespace App\Controllers;
 
 use App\Core\Controller;
-use App\Core\Request;
+use Foundation\Core\Request;
 use App\Models\Ciudad;
-use App\Core\Session;
+use Foundation\Core\Session;
 
 class CiudadController extends Controller
 {

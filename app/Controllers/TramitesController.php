@@ -1,22 +1,39 @@
 <?php
 
 namespace App\Controllers;
- 
 
 use App\Core\Controller;
-use App\Core\Request;
-use App\Core\Session;
-use App\Models\Tramites;
+use Foundation\Core\Request;
+use Foundation\Core\Session;
 use App\Models\DatosPersonales;
-use App\Models\Matricula;
-use App\Models\User;
-use App\Controllers\AuthController;
-use App\Controllers\UserController;
+use App\Models\Tramites;
 use App\Support\Sanitizer;
+use App\Services\TramiteService;
+use App\Services\MatriculaService;
+use App\Services\EmailService;
 
-
+/**
+ * TramitesController - Handles tramite-related HTTP requests
+ *
+ * Refactored to use Service Layer for business logic
+ */
 class TramitesController extends Controller
 {
+    protected TramiteService $tramiteService;
+    protected MatriculaService $matriculaService;
+    protected EmailService $emailService;
+
+    public function __construct()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        // Initialize services
+        $this->emailService = new EmailService();
+        $this->tramiteService = new TramiteService($this->emailService);
+        $this->matriculaService = new MatriculaService($this->tramiteService, $this->emailService);
+    }
 
     public function adminaspirantes(Request $request, array $params = []): void
     {
@@ -106,7 +123,7 @@ public function aspirantesview(Request $request): void
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, 'm.user_id');
-    $resultset = Tramites::CustomQry($query);
+    $resultset = $this->tramiteService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -243,27 +260,30 @@ public function aspirantesview(Request $request): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
-        if ($user['role'] <> 'admin' ) {
+        if ($user['role'] !== 'admin') {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
+
         $matriculado = (int)($params[0] ?? 0);
-        
-        //$datos = $request->getBody();
-        
         $revisor = $_SESSION['user']['id'] ?? 0;
-        $fecha_php = date('Y/m/d'); // dd/mm/yyyy
-        
-        Matricula::updatebyUser($matriculado, ['interviniente' => $revisor, 'revision' => $fecha_php]);
- 
-        $nombre_completo_revisor = DatosPersonales::GetNombreByUserId($revisor);
-        $txttramite = 'Asignación de revisor: ' . $nombre_completo_revisor;
 
-        Tramites::create(['user_id' => $matriculado, 'fecha' => $fecha_php, 'observaciones' => $txttramite]);
+        // Use MatriculaService to assign reviewer
+        $result = $this->matriculaService->asignarRevisor($matriculado, $revisor);
 
-        // Aquí se debe implementar la lógica para asignar el revisor al trámite.
-        // Por ejemplo, actualizar la base de datos con el ID del revisor.
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/controlinscripciones');
+            return;
+        }
+
+        // Register tramite
+        $nombreRevisor = DatosPersonales::GetNombreByUserId($revisor);
+        $txttramite = 'Asignación de revisor: ' . ($nombreRevisor ?? 'Administrador');
+        $this->tramiteService->registrarTramite($matriculado, $txttramite);
 
         Session::flash('success', 'Revisor asignado correctamente.');
         $this->redirect('/controlinscripciones');
@@ -346,27 +366,30 @@ public function aspirantesview(Request $request): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
-        if ($user['role'] <> 'admin' ) {
+        if ($user['role'] !== 'admin') {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
+
         $matriculado = (int)($params[0] ?? 0);
-        
-        //$datos = $request->getBody();
-        
         $verificador = $_SESSION['user']['id'] ?? 0;
-        $fecha_php = date('Y/m/d'); // dd/mm/yyyy
 
-        Matricula::updatebyUser($matriculado, ['interviniente' => $verificador, 'verificado' => $fecha_php]);
+        // Use MatriculaService to assign verifier
+        $result = $this->matriculaService->asignarVerificador($matriculado, $verificador);
 
-        $nombre_completo_verificador = DatosPersonales::GetNombreByUserId($verificador);
-        $txttramite = 'Asignación de verificador: ' . $nombre_completo_verificador;
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/controlinscripciones');
+            return;
+        }
 
-        Tramites::create(['user_id' => $matriculado, 'fecha' => $fecha_php, 'observaciones' => $txttramite]);
-
-        // Aquí se debe implementar la lógica para asignar el revisor al trámite.
-        // Por ejemplo, actualizar la base de datos con el ID del revisor.
+        // Register tramite
+        $nombreVerificador = DatosPersonales::GetNombreByUserId($verificador);
+        $txttramite = 'Asignación de verificador: ' . ($nombreVerificador ?? 'Administrador');
+        $this->tramiteService->registrarTramite($matriculado, $txttramite);
 
         Session::flash('success', 'Verificador asignado correctamente.');
         $this->redirect('/controlinscripciones');
@@ -462,7 +485,7 @@ public function m4fisico(Request $request): void
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, 'm.user_id');
-    $resultset = Tramites::CustomQry($query);
+    $resultset = $this->tramiteService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -503,7 +526,7 @@ public function m4review(Request $request): void
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, 'm.user_id');
-    $resultset = Tramites::CustomQry($query);
+    $resultset = $this->tramiteService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -709,27 +732,30 @@ public function m4review(Request $request): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
-        if ($user['role'] <> 'admin' ) {
+        if ($user['role'] !== 'admin') {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
+
         $matriculado = (int)($params[0] ?? 0);
-        
-        //$datos = $request->getBody();
-        
         $revisor = $_SESSION['user']['id'] ?? 0;
-        $fecha_php = date('Y/m/d'); // dd/mm/yyyy
-        
-        Matricula::updatebyUser($matriculado, ['interviniente' => $revisor, 'verificado' => $fecha_php]);
- 
-        $nombre_completo_revisor = DatosPersonales::GetNombreByUserId($revisor);
-        $txttramite = 'Asignación de verificador (documentos físicos): ' . $nombre_completo_revisor;
 
-        Tramites::create(['user_id' => $matriculado, 'fecha' => $fecha_php, 'observaciones' => $txttramite]);
+        // Use MatriculaService to assign verifier
+        $result = $this->matriculaService->asignarVerificador($matriculado, $revisor);
 
-        // Aquí se debe implementar la lógica para asignar el revisor al trámite.
-        // Por ejemplo, actualizar la base de datos con el ID del revisor.
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/controlinscripciones');
+            return;
+        }
+
+        // Register tramite
+        $nombreRevisor = DatosPersonales::GetNombreByUserId($revisor);
+        $txttramite = 'Asignación de verificador (documentos físicos): ' . ($nombreRevisor ?? 'Administrador');
+        $this->tramiteService->registrarTramite($matriculado, $txttramite);
 
         Session::flash('success', 'Verificador asignado correctamente.');
         $this->redirect('/controlinscripciones');
@@ -745,33 +771,35 @@ public function m4review(Request $request): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
-        if ($user['role'] <> 'admin' ) {
+        if ($user['role'] !== 'admin') {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
+
         $matriculado = (int)($params[0] ?? 0);
-        
-        //$datos = $request->getBody();
-        // Aquí se debe implementar la lógica para asignar el revisor al trámite.
-        // Por ejemplo, actualizar la base de datos con el ID del revisor.
-    
         $revisor = $_SESSION['user']['id'] ?? 0;
-        $fecha_php = date('Y/m/d'); // dd/mm/yyyy
-        $txtmotivo = Sanitizer::text($_POST['observaciones']);
-        Matricula::updatebyUser($matriculado, ['interviniente' => $revisor, 'revision' => null, 'freezedata' => null]);
- 
-        $nombre_completo_revisor = DatosPersonales::GetNombreByUserId($revisor);
-        $txttramite = 'Revision rechazada por: ' . $nombre_completo_revisor . '. Motivo: ' . $txtmotivo;
+        $txtmotivo = Sanitizer::text($_POST['observaciones'] ?? '');
 
-        Tramites::create(['user_id' => $matriculado, 'fecha' => $fecha_php, 'observaciones' => $txttramite]);
+        // Clear revision status
+        $result = $this->matriculaService->clearRevisionStatus($matriculado, $revisor);
 
-        $email = User::GetEmail($matriculado);
-        $subject = 'Revisión de documentación';
-        $body = 'Su solicitud de revisión ha sido rechazada. Motivo: ' . $txtmotivo;
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/controlinscripciones');
+            return;
+        }
 
-        AuthController::GeneralEmail($email, $subject, $body);
-        
+        // Reject revision and notify user
+        $result = $this->tramiteService->rechazarRevision($matriculado, $revisor, $txtmotivo, false);
+
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/controlinscripciones');
+            return;
+        }
 
         Session::flash('success', 'Rechazo registrado correctamente.');
         $this->redirect('/controlinscripciones');
@@ -943,7 +971,7 @@ public function m4verificacion(Request $request): void
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, 'm.user_id');
-    $resultset = Tramites::CustomQry($query);
+    $resultset = $this->tramiteService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -989,15 +1017,15 @@ public function m4verificacion(Request $request): void
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
-    $resultset = Tramites::CustomQry($query);
+    $resultset = $this->tramiteService->customQuery($query);
     $this->pendingquery = $query; // Guardamos la consulta pendiente para usarla en el script JS
     $this->pendingcolumns = json_encode($campos); // Guardamos los campos pendientes para usarlos en el script JS
     // $this->pendingcolumns = $campos;
     $comandos = $cfgedit['comandos'] ?? [];
     $buttons = $cfgedit['buttons'] ?? [];
         // Ejecuta la consulta y obtiene los datos
-    $datos = Tramites::CustomQry($query);
-    $zcolumns =  Self::mkcolumns($campos, $actividades);
+    $datos = $this->tramiteService->customQuery($query);
+    $zcolumns = Self::mkcolumns($campos, $actividades);
     $zcolumns =   trim(stripslashes($zcolumns), '"');
     $this->pendingcolumns = $zcolumns; // Guardamos las columnas pendientes para usarlas en el script JS
     $this->view('cruds/index', [
@@ -1121,7 +1149,7 @@ public function m4verificacion(Request $request): void
 
     public function update($request, array $params): void
     {
-            $id = $params[0] ?? null;
+        $id = $params[0] ?? null;
         if (!$id) {
             Session::flash('error', 'ID de comprobante no especificado.');
             $this->redirect('/miscomprobantes');
@@ -1135,16 +1163,15 @@ public function m4verificacion(Request $request): void
             return;
         }
 
-        if (!Tramites::find($id)) {
+        if (!$this->tramiteService->find((int)$id)) {
             Session::flash('error', 'Comprobante no encontrado.');
             $this->redirect('/dashboard');
             return;
         }
 
-        Tramites::update($id, ['nombre' => $nombre]);
+        $this->tramiteService->update((int)$id, ['nombre' => $nombre]);
         Session::flash('success', 'Comprobante actualizada.');
         $this->redirect('/miscomprobantes');
-
     }
 
 
@@ -1235,7 +1262,7 @@ public function legajodata(Request $request): void
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
-    $resultset = Tramites::CustomQry($query);
+    $resultset = $this->tramiteService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -1257,24 +1284,23 @@ public function legajodata(Request $request): void
 
     public function borrar($request, array $params): void
     {
-            $id = $params[0] ?? null;
+        $id = $params[0] ?? null;
         if (!$id) {
             Session::flash('error', 'ID de comprobante no especificado.');
             $this->redirect('/miscomprobantes');
             return;
         }
 
-         $comprob = Tramites::find($id);
+        $comprob = $this->tramiteService->find((int)$id);
         if (!$comprob) {
             Session::flash('error', 'Comprobante no encontrado.');
             $this->redirect('/miscomprobantes');
             return;
         }
 
-        Tramites::delete($id);
+        $this->tramiteService->delete((int)$id);
         Session::flash('success', 'Comprobante eliminado.');
         $this->redirect('/miscomprobantes');
-
     }
     // para destinos futuros
     public function grid(): void
@@ -1456,7 +1482,7 @@ public static function calcJSColumns(array $fields, array $acciones): array
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, 'm.user_id');
-    $resultset = Tramites::CustomQry($query);
+    $resultset = $this->tramiteService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -1662,7 +1688,7 @@ public function fisicoview(Request $request): void
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, 'm.user_id');
-    $resultset = Tramites::CustomQry($query);
+    $resultset = $this->tramiteService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -1776,43 +1802,42 @@ public function fisicoview(Request $request): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
-        if ($user['role'] <> 'admin' ) {
+        if ($user['role'] !== 'admin') {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
+
         $matriculado = (int)($params[0] ?? 0);
-        
-        //$datos = $request->getBody();
-        // Aquí se debe implementar la lógica para asignar el revisor al trámite.
-        // Por ejemplo, actualizar la base de datos con el ID del revisor.
-    
         $revisor = $_SESSION['user']['id'] ?? 0;
-        $fecha_php = date('Y/m/d'); // dd/mm/yyyy
-        $txtmotivo = Sanitizer::text($_POST['observaciones']);
-        Matricula::updatebyUser($matriculado, ['interviniente' => $revisor, 
-            'revision' => null, 
-            'freezedata' => null, 
-            'verificado' => null]);
- 
-        $nombre_completo_revisor = DatosPersonales::GetNombreByUserId($revisor);
-        $txttramite = 'Revision rechazada por: ' . $nombre_completo_revisor . '. Motivo: ' . $txtmotivo;
+        $txtmotivo = Sanitizer::text($_POST['observaciones'] ?? '');
 
-        Tramites::create(['user_id' => $matriculado, 'fecha' => $fecha_php, 'observaciones' => $txttramite]);
+        // Clear all verification statuses
+        $result = $this->matriculaService->clearAllVerificationStatuses($matriculado, $revisor);
 
-        $email = User::GetEmail($matriculado);
-        $subject = 'Revisión de documentación';
-        $body = 'Su solicitud de revisión ha sido rechazada. Motivo: ' . $txtmotivo;
-        $body .= ' Fecha de revisión: ' . $fecha_php . '. Interviniente: ' . $nombre_completo_revisor . '.';
-        AuthController::GeneralEmail($email, $subject, $body);
-        
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/acontrolfisico');
+            return;
+        }
+
+        // Reject revision with notification
+        $result = $this->tramiteService->rechazarRevision($matriculado, $revisor, $txtmotivo, true);
+
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/acontrolfisico');
+            return;
+        }
 
         Session::flash('success', 'Rechazo registrado correctamente.');
         $this->redirect('/acontrolfisico');
     }
 
 
-    public function ok2fisico( $request, array $params = []): void
+    public function ok2fisico(Request $request, array $params = []): void
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
@@ -1822,33 +1847,29 @@ public function fisicoview(Request $request): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
-        if ($user['role'] <> 'admin' ) {
+        if ($user['role'] !== 'admin') {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
+
         $matriculado = (int)($params[0] ?? 0);
-        
-        //$datos = $request->getBody();
-        // Aquí se debe implementar la lógica para asignar el revisor al trámite.
-        // Por ejemplo, actualizar la base de datos con el ID del revisor.
-    
         $revisor = $_SESSION['user']['id'] ?? 0;
-        $fecha_php = date('Y/m/d'); // dd/mm/yyyy
-        $txtmotivo = Sanitizer::text($_POST['observaciones']);
-        Matricula::updatebyUser($matriculado, ['interviniente' => $revisor, 'revision' => null, 'aprobado' => $fecha_php]);
- 
-        $nombre_completo_revisor = DatosPersonales::GetNombreByUserId($revisor);
-        $txttramite = 'Revision física aprobada por: ' . $nombre_completo_revisor . ' ' .$txtmotivo;
+        $txtmotivo = Sanitizer::text($_POST['observaciones'] ?? '');
 
-        Tramites::create(['user_id' => $matriculado, 'fecha' => $fecha_php, 'observaciones' => $txttramite]);
+        // Approve physical verification
+        $result = $this->matriculaService->aprobarVerificacionFisica($matriculado, $revisor);
 
-        $email = User::GetEmail($matriculado);
-        $subject = 'Revisión de documentación';
-        $body = 'La verificación física de la documentación fue satisfactoria.  ' ;
-        $body .= ' Fecha de revisión: ' . $fecha_php . '. Interviniente: ' . $nombre_completo_revisor . '.';
-        AuthController::GeneralEmail($email, $subject, $body);
-        
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/acontrolfisico');
+            return;
+        }
+
+        // Send notification
+        $this->tramiteService->aprobarVerificacionFisica($matriculado, $revisor, $txtmotivo);
 
         Session::flash('success', 'Aprobación registrada correctamente.');
         $this->redirect('/acontrolfisico');
@@ -1865,26 +1886,30 @@ public function fisicoview(Request $request): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
-        if ($user['role'] <> 'admin' ) {
+        if ($user['role'] !== 'admin') {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
+
         $matriculado = (int)($params[0] ?? 0);
-        
-        //$datos = $request->getBody();
-        
         $revisor = $_SESSION['user']['id'] ?? 0;
-        $fecha_php = date('Y/m/d'); // dd/mm/yyyy
-        
-        Matricula::updatebyUser($matriculado, ['interviniente' => $revisor, 'aprobado' => $fecha_php]);
- 
-        $nombre_completo_revisor = DatosPersonales::GetNombreByUserId($revisor);
-        $txttramite = 'Revisor: ' . $nombre_completo_revisor . ' Control físico aprobado.';
 
-        Tramites::create(['user_id' => $matriculado, 'fecha' => $fecha_php, 'observaciones' => $txttramite]);
+        // Use MatriculaService to approve physical verification
+        $result = $this->matriculaService->aprobarVerificacionFisica($matriculado, $revisor);
 
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/acontrolfisico');
+            return;
+        }
 
+        // Register tramite
+        $nombreRevisor = DatosPersonales::GetNombreByUserId($revisor);
+        $txttramite = 'Revisor: ' . ($nombreRevisor ?? 'Administrador') . ' Control físico aprobado.';
+        $this->tramiteService->registrarTramite($matriculado, $txttramite);
 
         Session::flash('success', 'Aprobado el control físico de la documentación.');
         $this->redirect('/acontrolfisico');
@@ -1900,33 +1925,35 @@ public function fisicoview(Request $request): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
-        if ($user['role'] <> 'admin' ) {
+        if ($user['role'] !== 'admin') {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
+
         $matriculado = (int)($params[0] ?? 0);
-        
-        //$datos = $request->getBody();
-        // Aquí se debe implementar la lógica para asignar el revisor al trámite.
-        // Por ejemplo, actualizar la base de datos con el ID del revisor.
-    
         $revisor = $_SESSION['user']['id'] ?? 0;
-        $fecha_php = date('Y/m/d'); // dd/mm/yyyy
-        $txtmotivo = Sanitizer::text($_POST['observaciones']);
-        Matricula::updatebyUser($matriculado, ['interviniente' => $revisor, 'revision' => null, 'freezedata' => null]);
- 
-        $nombre_completo_revisor = DatosPersonales::GetNombreByUserId($revisor);
-        $txttramite = 'Revision rechazada por: ' . $nombre_completo_revisor . '. Motivo: ' . $txtmotivo;
+        $txtmotivo = Sanitizer::text($_POST['observaciones'] ?? '');
 
-        Tramites::create(['user_id' => $matriculado, 'fecha' => $fecha_php, 'observaciones' => $txttramite]);
+        // Clear revision status
+        $result = $this->matriculaService->clearRevisionStatus($matriculado, $revisor);
 
-        $email = User::GetEmail($matriculado);
-        $subject = 'Revisión de documentación';
-        $body = 'Su solicitud de revisión ha sido rechazada. Motivo: ' . $txtmotivo;
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/controlinscripciones');
+            return;
+        }
 
-        AuthController::GeneralEmail($email, $subject, $body);
-        
+        // Reject revision and notify
+        $result = $this->tramiteService->rechazarRevision($matriculado, $revisor, $txtmotivo, false);
+
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/controlinscripciones');
+            return;
+        }
 
         Session::flash('success', 'Rechazo registrado correctamente.');
         $this->redirect('/controlinscripciones');

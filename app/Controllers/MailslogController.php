@@ -1,20 +1,21 @@
 <?php
 
 namespace App\Controllers;
- 
+
 
 use App\Core\Controller;
-use App\Core\Request;
-use App\Core\Session;
-use App\Models\{Mailslog};
+use Foundation\Core\Request;
+use Foundation\Core\Session;
+use App\Models\Mailslog;
 use App\Support\Sanitizer;
+use PDO;
 
 class MailsLogController extends Controller
 {
     public function mainview(): void
     {
         /* revisar los paths */
-        $this->makegrid('{$viewPath}/index.php');
+        $this->makegrid('cruds/mailslog/index.php');
 
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
@@ -33,7 +34,6 @@ class MailsLogController extends Controller
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
-    $resultset = ComprobantesPago::CustomQry($query);
     $this->pendingquery = $query; // Guardamos la consulta pendiente para usarla en el script JS
     $this->pendingcolumns = json_encode($campos); // Guardamos los campos pendientes para usarlos en el script JS
     // $this->pendingcolumns = $campos;
@@ -52,7 +52,7 @@ class MailsLogController extends Controller
             'actions'  => $actividades,
             'comandos' => $comandos,
             'buttons'  => $buttons,
-            'divname' => $cfg['divname'],            
+            'divname' => $cfg['divname'],
             'id'      => 'id',
             'link_id' => 'user_id',
             'scriptjs_data' => $this->pendingquery,
@@ -78,14 +78,14 @@ class MailsLogController extends Controller
         $style = $crudstyle['style'] ?? [];
         $cfgcreate = require $_SESSION['directoriobase'] . '/config/cruds/mailslog/create.php';
         $cfg       = $cfgcreate['config']      ?? [];
-        
+
         $cfg['url_action'] .= '/' . $id; // <— se agrega el id a la url
 
         $campos    = $cfgcreate['campos']      ?? [];
         $actividades = $cfgcreate['actividades'] ?? [];
         $comandos    = $cfgcreate['comandos']  ?? [];
         $buttons     = $cfgcreate['buttons']   ?? [];
-    
+
         $this->view('cruds/index', [
             'cfg'      => $cfg,
             'style'    => $style,
@@ -102,14 +102,14 @@ class MailsLogController extends Controller
 
     public function store($request): void
     {
- 
+
        $id = $params[0] ?? null; // Get the ID from the URL parameters
             if (!$id) {
                 Session::flash('error', 'Algo salió mal!');
                 $this->redirect('/miscomprobantes');
                 return;
             }
-            
+
             //eliminar espacios en blanco del nombre del archivo
             if (isset($_FILES['comprobante']['name'])) {
                 $_FILES['comprobante']['name'] = preg_replace('/\s+/', '_', $_FILES['comprobante']['name']);
@@ -120,20 +120,20 @@ class MailsLogController extends Controller
                 'fecha' => $_POST['fecha'],
                 'observaciones' => Sanitizer::text($_POST['observaciones'])
             ];
-            
-            //$data = $_POST;
-            ComprobantesPago::create($zzdata);
 
- 
+            //$data = $_POST;
+            Mailslog::create($zzdata);
+
+
             // Handle file upload
             if (isset($_FILES['comprobante']) && $_FILES['comprobante']['error'] === UPLOAD_ERR_OK) {
                 $file = $_FILES['comprobante'];
                 $fileName = $file['name']; // Unique filename
-                
+
                 $uploadDir = $this->getUserUploadFolder($id);
                 // Get upload directory
                 //$uploadDir = $_SESSION['directoriobase'] . '/storage/uploads/' . md5($_SESSION['user_id'] . require($_SESSION['directoriobase'].'/config/settings.php')['basellave']) . '/';
-                
+
                 // Create directory if it doesn't exist
                 if (!is_dir($uploadDir)) {
                     mkdir($uploadDir, 0777, true);
@@ -150,7 +150,7 @@ class MailsLogController extends Controller
             }
 
             // Create record in database
-            
+
             Session::flash('success', 'Comprobante guardado exitosamente.');
             $this->redirect('/mailslog');
 
@@ -161,7 +161,7 @@ class MailsLogController extends Controller
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
-        
+
         $user = $_SESSION['user'] ?? null;
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
@@ -169,22 +169,12 @@ class MailsLogController extends Controller
         }
 
         $id = (int)($params[0] ?? 0);
-        
+
         if ($user['role'] == 'user' && $id != $user['id']) {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/dashboard');
         }
-        $datos = DatosPersonales::findByUserId($id);
-        // Si no existe el registro, podrías crearlo de forma automática.
-        if (!$datos) {
-            DatosPersonales::create(['user_id' => $id]);
-            $datos = DatosPersonales::findByUserId($id);
-        }
 
-        // buscar las tablas relacionadas
-        // $provincias = Provincia::all();
-        // $ciudades = Ciudad::all();
-        
         // Pasar todas las variables a la vista
 
         $crudstyle = require $_SESSION['directoriobase'] . '/config/cruds/defaults/crudstyle.php';
@@ -197,13 +187,11 @@ class MailsLogController extends Controller
         $actividades = $cfgedit['actividades'] ?? [];
         $comandos    = $cfgedit['comandos']  ?? [];
         $buttons     = $cfgedit['buttons']   ?? [];
-        $campos['provincia_id']['options'] = $provincias;
-        $campos['ciudad_id']['options']    = $ciudades;
 
         $this->view('cruds/index', [
             'cfg'      => $cfg,
             'fields'   => $campos,     // <— coherente con index/create
-            'values'   => $datos,       // array simple con claves=>valores
+            'values'   => [],       // array simple con claves=>valores
             'actions'  => $actividades,
             'comandos' => $comandos,
             'buttons'  => $buttons,
@@ -229,13 +217,13 @@ class MailsLogController extends Controller
             return;
         }
 
-        if (!ComprobantesPago::find($id)) {
+        if (!Mailslog::find($id)) {
             Session::flash('error', 'Comprobante no encontrado.');
             $this->redirect('/miscomprobantes');
             return;
         }
 
-        ComprobantesPago::update($id, ['nombre' => $nombre]);
+        Mailslog::update($id, ['nombre' => $nombre]);
         Session::flash('success', 'Comprobante actualizada.');
         $this->redirect('/miscomprobantes');
 
@@ -255,14 +243,14 @@ class MailsLogController extends Controller
             return;
         }
 
-         $comprob = ComprobantesPago::find($id);
+         $comprob = Mailslog::find($id);
         if (!$comprob) {
             Session::flash('error', 'Comprobante no encontrado.');
             $this->redirect('/miscomprobantes');
             return;
         }
 
-        ComprobantesPago::delete($id);
+        Mailslog::delete($id);
         Session::flash('success', 'Comprobante eliminado.');
         $this->redirect('/miscomprobantes');
 
@@ -271,60 +259,51 @@ class MailsLogController extends Controller
     public function grid(): void
     {
     }
-}
 
+    // Helper methods moved inside class
+    public static function mkColumns(array $campos, array $acciones): string
+    {
+        $columns = [];
 
-
-
-public static function mkColumns(array $campos, array $acciones): string
-{
-    $columns = [];
-
-    foreach ($campos as $key => $campo) {
-        if (empty($campo['hidden'])) {
-            $label = addslashes($campo['label']);
-            $columns[] = "{ data: '$key', title: '$label' }";
+        foreach ($campos as $key => $campo) {
+            if (empty($campo['hidden'])) {
+                $label = addslashes($campo['label']);
+                $columns[] = "{ data: '$key', title: '$label' }";
+            }
         }
-    }
 
-    foreach ($acciones as $key => $accion) {
-        $label = addslashes($accion['text']);
-        $columns[] = "{ data: '$key', title: '$label', orderable: false, searchable: false }";
-    }
-
-    // *** Aquí NO usamos json_encode, devolvemos el JS tal cual ***
-    return implode(",
-    ", $columns);
-}
-
-
-public static function buildDataTablesScript(array $campos, array $acciones, string $ajaxurl, string $tableid): string
-{
-    $columns = [];
-
-    // Columnas visibles
-    foreach ($campos as $key => $campo) {
-        if (empty($campo['hidden'])) {
-            $label = addslashes($campo['label']);
-            $columns[] = "{ data: '$key', title: '$label' }";
+        foreach ($acciones as $key => $accion) {
+            $label = addslashes($accion['text']);
+            $columns[] = "{ data: '$key', title: '$label', orderable: false, searchable: false }";
         }
+
+        return implode(",
+        ", $columns);
     }
 
-    // Acciones como botones (si hay)
-    foreach ($acciones as $key => $accion) {
-        $columns[] = "{ data: '$key', title: '$key', orderable: false, searchable: false }";
-    }
+    public static function buildDataTablesScript(array $campos, array $acciones, string $ajaxurl, string $tableid): string
+    {
+        $columns = [];
 
-    $coljs = self::mkColumns($campos, $acciones);
-    //implode(",
-", $columns);
+        foreach ($campos as $key => $campo) {
+            if (empty($campo['hidden'])) {
+                $label = addslashes($campo['label']);
+                $columns[] = "{ data: '$key', title: '$label' }";
+            }
+        }
 
-    return <<<JS
+        foreach ($acciones as $key => $accion) {
+            $columns[] = "{ data: '$key', title: '$key', orderable: false, searchable: false }";
+        }
+
+        $coljs = self::mkColumns($campos, $acciones);
+
+        return <<<JS
 $(document).ready(function () {
     $('#$tableid').DataTable({
         ajax: {
             url: '$ajaxurl',
-            dataSrc: 'aaData'    // <-- aquí
+            dataSrc: 'aaData'
             },
         processing: true,
         serverSide: false,
@@ -340,48 +319,40 @@ $(document).ready(function () {
     });
 });
 JS;
-}
-
-public static function calcJSColumns(array $fields, array $acciones): array
-{
-    $cols = [];
-    foreach ($fields as $key => $field) {
-        if (empty($field['hidden'])) {
-            $cols[] = "{ data: '$key', name: '$key', searchable: " .
-                 (!empty($field['searchable']) ? 'true' : 'false') . ", orderable: " . 
-                 (!empty($field['orderable']) ? 'true' : 'false') . " }";
-        }
     }
-    // Agregar columna de acciones
-    foreach ($acciones as $key => $accion) {
-        {
+
+    public static function calcJSColumns(array $fields, array $acciones): array
+    {
+        $cols = [];
+        foreach ($fields as $key => $field) {
+            if (empty($field['hidden'])) {
+                $cols[] = "{ data: '$key', name: '$key', searchable: " .
+                     (!empty($field['searchable']) ? 'true' : 'false') . ", orderable: " .
+                     (!empty($field['orderable']) ? 'true' : 'false') . " }";
+            }
+        }
+
+        foreach ($acciones as $key => $accion) {
             $cols[] = "{ data: '$key', name: '$key' }";
         }
+
+        return $cols;
     }
 
-    return $cols;
-}
-     public static function CustomQry(string $customquery): array
-
+    public static function CustomQry(string $customquery): array
     {
         $stmt = self::getDB()->query($customquery);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-        public static function CustomError(): string
-
+    public static function CustomError(): string
     {
         $localerror = self::getDB()->errorInfo();
         return $localerror[2] ?? 'Error desconocido en la consulta SQL';
-
     }
 
-    /**
-     * Get a PDO database connection instance.
-     */
     protected static function getDB(): PDO
     {
-        // Adjust the path to your settings file as needed
         $config = require $_SESSION['directoriobase'].'/config/settings.php';
         $dsn = $config['db']['dsn'];
         $username = $config['db']['username'];
@@ -390,4 +361,4 @@ public static function calcJSColumns(array $fields, array $acciones): array
 
         return new PDO($dsn, $username, $password, $options);
     }
-
+}

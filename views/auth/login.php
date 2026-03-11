@@ -38,7 +38,7 @@ $builder->build();
     <p class="text-danger"><?= $this->e($error) ?></p>
 <form action="/login" method="POST" class="form-group">
     <?php
-    use App\Core\CSRF;
+    use Foundation\Core\CSRF;
     echo CSRF::tokenField();
     ?>
     <div class="input-group mb-3">

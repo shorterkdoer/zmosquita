@@ -3,8 +3,8 @@
 namespace App\Controllers;
 
 use App\Core\Controller;
-use App\Core\Request;
-use App\Core\Session;
+use Foundation\Core\Request;
+use Foundation\Core\Session;
 
 class DashboardController extends Controller
 {

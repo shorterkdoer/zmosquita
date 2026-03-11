@@ -4,7 +4,9 @@ namespace App\Core;
 
 use League\Plates\Engine;
 use PDO;
-use App\Core\Request;
+use Foundation\Core\Request;
+use Foundation\Core\CSRF;
+use Foundation\Core\Response;
 use App\Core\Helpers\Sanitizer;
 
 class Controller

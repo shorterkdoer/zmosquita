@@ -3,7 +3,7 @@
 use App\Controllers\MatriculaController; 
 use App\Middlewares\AuthMiddleware;
 use App\Middlewares\AdminMiddleware;
-use App\Core\Router;
+use Foundation\Core\Router;
 
 // Rutas para la gestión de matrículas
 

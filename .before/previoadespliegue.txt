@@ -1,0 +1,11 @@
+⚠️ Acciones requeridas antes de desplegar a producción:                                                                                                                    
+                                                                                                                                                                             
+  1. Actualiza tu archivo .env con valores reales:                                                                                                                           
+  # Genera una clave fuerte:                                                                                                                                                 
+  php -r "echo bin2hex(random_bytes(32));"                                                                                                                                   
+                                                                                                                                                                             
+  # Actualiza MAIL_PASSWORD con la contraseña real                                                                                                                           
+  # Actualiza las credenciales de base de datos si es necesario                                                                                                              
+  2. Asegúrate de que .env esté en .gitignore (ya configurado)                                                                                                               
+  3. Ejecuta composer dump-autoload para cargar las nuevas clases                                                                                                            
+  4. Verifica que las rutas POST ahora requieran tokens CSRF válidos                                               

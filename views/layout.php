@@ -7,7 +7,7 @@ include_once 'head.inc.php';
 ?>
 
 <?php
-use App\Core\Session;
+use Foundation\Core\Session;
 
 $user = Session::get('user');
 ?>

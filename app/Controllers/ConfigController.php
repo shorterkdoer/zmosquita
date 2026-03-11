@@ -2,8 +2,8 @@
 namespace App\Controllers;
 
 use App\Core\Controller;
-use App\Core\Request;
-use App\Core\Session;
+use Foundation\Core\Request;
+use Foundation\Core\Session;
 use App\Models\Config;
 
 class ConfigController extends Controller

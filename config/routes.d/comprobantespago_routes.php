@@ -5,7 +5,7 @@ use App\Controllers\AuthController;
 use App\Middlewares\AuthMiddleware;
 use App\Middlewares\AdminMiddleware;
 
-use App\Core\Router;
+use Foundation\Core\Router;
 
 
 

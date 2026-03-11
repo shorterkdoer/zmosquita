@@ -1,9 +1,10 @@
 <?php
 namespace App\Middlewares;
 
-use App\Core\Response;
-use App\Core\Request;
-use App\Core\Session;
+use Foundation\Core\Response;
+use Foundation\Core\Request;
+use Foundation\Core\Session;
+use Foundation\Middleware\BaseMiddleware;
 use App\Models\User;
 
 class AuthMiddleware extends BaseMiddleware
@@ -65,14 +66,20 @@ class AuthMiddleware extends BaseMiddleware
             Response::redirect('/user-dashboard');
         }
     }
-    
+
     /**
      * Muestra el formulario de login
      */
     public function loginForm(Request $request): void
     {
-        Response::view('auth/login', [
-            'error' => Session::flash('error')
-        ]);
+        // Using app's view rendering, not Foundation's
+        $template = $_SESSION['directoriobase'] . '/views/auth/login.php';
+        if (file_exists($template)) {
+            extract(['error' => Session::flash('error')]);
+            require $template;
+        } else {
+            echo 'Error: Template not found';
+        }
+        exit;
     }
 }

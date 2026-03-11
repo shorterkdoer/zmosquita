@@ -1,0 +1,17 @@
+{
+    "name": "zmosquita/foundation",
+    "description": "Framework foundation for ZMosquita application",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Foundation\\": "src/Foundation/"
+        }
+    },
+    "require": {
+        "php": ">=8.0",
+        "paragonie/anti-csrf": "^2.4"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

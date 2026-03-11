@@ -107,7 +107,7 @@ if (!empty($error)): ?>
  <div class="form-group">
 <form action="/register" method="POST" class="mx-auto" style="max-width: 400px;">
     <?php
-    use App\Core\CSRF;
+    use Foundation\Core\CSRF;
     echo CSRF::tokenField();
     ?>
 

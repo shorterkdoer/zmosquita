@@ -7,7 +7,7 @@ error_reporting(E_ALL);
 // Autoload dependencies FIRST
 require_once 'vendor/autoload.php';
 
-use App\Core\CSRF;
+use Foundation\Core\CSRF;
 
 // Start session with secure configuration
 if (session_status() === PHP_SESSION_NONE) {
@@ -28,7 +28,7 @@ $_SESSION['base_url'] = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST
 $dotenv = Dotenv\Dotenv::createImmutable($_SESSION['directoriobase'] . "/");
 $dotenv->load();
 // Load configuration and routes
-use App\Core\Router;
+use Foundation\Core\Router;
 $config = require 'config/settings.php';
 
 $_SESSION['Title'] = $config['title'];

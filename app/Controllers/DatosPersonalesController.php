@@ -3,30 +3,51 @@
 namespace App\Controllers;
 
 use App\Core\Controller;
-use App\Core\Request;
+use Foundation\Core\Request;
+use Foundation\Core\Session;
 use App\Models\DatosPersonales;
 use App\Models\Provincia;
 use App\Models\Ciudad;
 use App\Models\Comision;
-use App\Core\Session;
+use App\Models\Matricula;
 use App\Models\User;
-use App\Helpers\ApiCrudHelper;
-use App\Models\Matricula; 
+use App\Support\Sanitizer;
+use App\Services\UserService;
+use App\Services\DocumentService;
+use App\Services\MatriculaService;
 use setasign\Fpdi\Fpdi;
-//use SimpleSoftwareIO\QrCode;
-//use SimpleSoftwareIO\QrCode\Facades\QrCode as FacadesQrCode;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use BaconQrCode\Renderer\ImageRenderer;
-use BaconQrCode\Renderer\Image\ImagickImageBackEnd; // o puedes usar GdImageBackEnd si no tenés Imagick
+use BaconQrCode\Renderer\Image\ImagickImageBackEnd;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 use Imagick;
-use Exception;
-use App\Support\Sanitizer;
-//use Sanitizer as GlobalSanitizer;
 
+/**
+ * DatosPersonalesController - Handles personal data and credential management
+ *
+ * Refactored to use Service Layer for business logic
+ */
 class DatosPersonalesController extends Controller
 {
+    protected UserService $userService;
+    protected DocumentService $documentService;
+    protected MatriculaService $matriculaService;
+
+    public function __construct()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        // Initialize services
+        $this->userService = new UserService();
+        $this->documentService = new DocumentService();
+        $this->matriculaService = new MatriculaService(
+            new \App\Services\TramiteService(new \App\Services\EmailService()),
+            new \App\Services\EmailService()
+        );
+    }
     public function edit(Request $request, array $params = []): void
     {
         if (session_status() === PHP_SESSION_NONE) {
@@ -199,8 +220,8 @@ public function vistalegajo(Request $request, array $params = []): void
         //$user = User::findByEmail($email);
 
         // Se busca el registro de datospersonales por el user_id.
-        $datos = Matricula::findByUserId($id);
-        if($datos ==null) {
+        $datos = $this->matriculaService->findByUserId($id);
+        if ($datos == null) {
             Session::flash('error', 'No se encontraron datos personales para este usuario.');
             $this->redirect('/dashboard');
         }
@@ -242,65 +263,54 @@ public function vistalegajo(Request $request, array $params = []): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
 
         $id = (int)($params[0] ?? 0);
-        
+
         if ($user['role'] == 'user' && $id != $user['id']) {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
 
         $userId = $user['id'];
-        
+
         // Recoger y limpiar los datos enviados.
         $data = [
-
-            'nombre'          => Sanitizer::text(trim($_POST['nombre']), 100),
-            'apellido'        => Sanitizer::text(trim($_POST['apellido']), 100),
-            'dni'             => Sanitizer::text(trim($_POST['dni']), 15),
-            'direccion_calle' => Sanitizer::text(trim($_POST['direccion_calle']), 80),
-            'direccion_numero'=> Sanitizer::text(trim($_POST['direccion_numero']), 10),
-            'direccion_piso'  => Sanitizer::text(trim($_POST['direccion_piso']), 10),
-            'direccion_depto' => Sanitizer::text(trim($_POST['direccion_depto']), 10),
-            'direccion_cp'    => Sanitizer::text(trim($_POST['direccion_cp']), 10),
-            'telefono'        => Sanitizer::text(trim($_POST['telefono']), 15),
-            'celular'         => Sanitizer::text(trim($_POST['celular']), 15),
-            'mailparticular' => filter_var(trim($_POST['mailparticular']), FILTER_SANITIZE_EMAIL),
-            'maillaboral' => filter_var(trim($_POST['maillaboral']), FILTER_SANITIZE_EMAIL),
+            'nombre'          => Sanitizer::text(trim($_POST['nombre'] ?? ''), 100),
+            'apellido'        => Sanitizer::text(trim($_POST['apellido'] ?? ''), 100),
+            'dni'             => Sanitizer::text(trim($_POST['dni'] ?? ''), 15),
+            'direccion_calle' => Sanitizer::text(trim($_POST['direccion_calle'] ?? ''), 80),
+            'direccion_numero'=> Sanitizer::text(trim($_POST['direccion_numero'] ?? ''), 10),
+            'direccion_piso'  => Sanitizer::text(trim($_POST['direccion_piso'] ?? ''), 10),
+            'direccion_depto' => Sanitizer::text(trim($_POST['direccion_depto'] ?? ''), 10),
+            'direccion_cp'    => Sanitizer::text(trim($_POST['direccion_cp'] ?? ''), 10),
+            'telefono'        => Sanitizer::text(trim($_POST['telefono'] ?? ''), 15),
+            'celular'         => Sanitizer::text(trim($_POST['celular'] ?? ''), 15),
+            'mailparticular'  => filter_var(trim($_POST['mailparticular'] ?? ''), FILTER_SANITIZE_EMAIL),
+            'maillaboral'     => filter_var(trim($_POST['maillaboral'] ?? ''), FILTER_SANITIZE_EMAIL),
         ];
-            if(isset($_POST['provincia_id'])) {
-                $data['provincia_id'] = trim($_POST['provincia_id']);
-            } 
-                    
-            
-            if(isset($_POST['ciudad_id'])) {
-                $data['ciudad_id'] = trim($_POST['ciudad_id']);
-            }
 
-            /*
-            // Agregar los demás campos según sea necesario.
-            'nombre'          => trim($request->input('nombre')),
-            'apellido'        => trim($request->input('apellido')),
-            'dni'             => trim($request->input('dni')),
-            'direccion_calle' => trim($request->input('direccion_calle')),
-            'direccion_numero'=> trim($request->input('direccion_numero')),
-            'direccion_piso'  => trim($request->input('direccion_piso')),
-            'direccion_depto' => trim($request->input('direccion_depto')),
-            'direccion_cp'    => trim($request->input('direccion_cp')),
-            'telefono'        => trim($request->input('telefono')),
-            'celular'         => trim($request->input('celular')),
-            'provincia_id'     => trim($request->input('provincia_id')),
-            'ciudad_id'        => trim($request->input('ciudad_id')),
-            */
-    
-        
-        // Se asume que existe un registro en datospersonales para el usuario.
-        // Se busca el registro a través de user_id o se actualiza directamente.
-        DatosPersonales::updatebyUser($userId, $data);
+        if (isset($_POST['provincia_id'])) {
+            $data['provincia_id'] = trim($_POST['provincia_id']);
+        }
+
+        if (isset($_POST['ciudad_id'])) {
+            $data['ciudad_id'] = trim($_POST['ciudad_id']);
+        }
+
+        // Use UserService to update personal data
+        $result = $this->userService->updatePersonalData($userId, $data);
+
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/user-dashboard');
+            return;
+        }
+
         Session::flash('success', 'Datos Personales actualizados correctamente.');
         $this->redirect('/user-dashboard');
-        //$this->redirect('/datospersonales/edit');
     }
    
     public function adminbrowse(Request $request, array $params = []): void
@@ -389,7 +399,7 @@ public function padronview(Request $request): void
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, 'm.user_id');
-    $resultset = DatosPersonales::CustomQry($query);
+    $resultset = $this->documentService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -618,7 +628,7 @@ public function activosview(Request $request): void
     
     
     
-    $resultset = DatosPersonales::CustomQry($query);
+    $resultset = $this->documentService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -664,7 +674,7 @@ public function activosview(Request $request): void
     
     
     
-    $resultset = DatosPersonales::CustomQry($query);
+    $resultset = $this->documentService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -790,36 +800,28 @@ public function activosview(Request $request): void
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
 
         $id = (int)($params[0] ?? 0);
-        
+
         if ($user['role'] == 'user' && $id != $user['id']) {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/user-dashboard');
+            return;
         }
 
-        $userId = $user['id'];
-        
-        // Recoger y limpiar los datos enviados.
-        $datos = DatosPersonales::findByUserIdWithRole($id);
-        if($datos['role'] == 'admin') {
-            $xdata = 'user';
-            
-        } else {
-            $xdata = 'admin';
-            
+        // Use UserService to toggle role
+        $result = $this->userService->toggleRole($id);
+
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/dashboard');
+            return;
         }
 
-        
-
-        // Se asume que existe un registro en datospersonales para el usuario.
-        // Se busca el registro a través de user_id o se actualiza directamente.
-        User::updateRole($id, $xdata);
-
-        Session::flash('success', 'Rol actualizado.');
+        Session::flash('success', 'Rol actualizado a ' . $result['new_role'] . '.');
         $this->redirect('/dashboard');
-        //$this->redirect('/datospersonales/edit');
     }
 
 
@@ -845,8 +847,8 @@ public function generarPDF(Request $request, array $params): void
         //$user = User::findByEmail($email);
 
         // Se busca el registro de datospersonales por el user_id.
-        $datos = Matricula::findByUserId($id);
-        if($datos ==null) {
+        $datos = $this->matriculaService->findByUserId($id);
+        if ($datos == null) {
             Session::flash('error', 'No se encontraron datos personales para este usuario.');
             $this->redirect('/dashboard');
         }
@@ -861,14 +863,14 @@ public function generarPDF(Request $request, array $params): void
     }
 
     $persona = DatosPersonales::findByUserId($user_id);
-    $matricula = Matricula::findByUserId($user_id); // implementá este método si aún no lo tenés
+    $matricula = $this->matriculaService->findByUserId($user_id);
 
     if (!$persona || !$matricula) {
         Session::flash('error', 'Datos no encontrados.');
         $this->redirect('/datospersonales');
         return;
     }
-    $rutaaladjunto = $this->getUserFolder($id);
+    $rutaaladjunto = $this->documentService->getUserFolder($id);
     if (!$rutaaladjunto) {
         Session::flash('error', 'No se pudo determinar la ruta de los archivos adjuntos.');
         $this->redirect('/datospersonales');
@@ -884,10 +886,9 @@ public function generarPDF(Request $request, array $params): void
 // {{}} revisar si es esta rutina la que debe usarse, parece que no
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
-        }   
+        }
         $locuser = $_SESSION['user']['id'] ?? null;
-        $xuser = User::findById($locuser);
-        $matricula = Matricula::findByUserId($locuser);
+        $matricula = $this->matriculaService->findByUserId($locuser);
         if($matricula == null) {
             Session::flash('error', 'No se encontraron datos de matrícula para este usuario.');
             $this->redirect('/dashboard');
@@ -916,7 +917,7 @@ public function generarPDF(Request $request, array $params): void
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }   
-        $matricula = Matricula::findByAsignada($id);
+        $matricula = $this->matriculaService->findByAsignada($id);
 
         //require_once $_SESSION['directoriobase'] . '/lib/fpdf/fpdf.php'; // Ajustar según tu estructura
         //require_once $_SESSION['directoriobase'] . '/libs/phpqrcode/qrlib.php'; // Para generar QR
@@ -930,7 +931,7 @@ public function generarPDF(Request $request, array $params): void
         }
          // echo "Matrícula encontrada";
          $locuser = $matricula['user_id'];
-         $rutaaladjunto = $this->getUserFolder($locuser);
+         $rutaaladjunto = $this->documentService->getUserFolder($locuser);
          $this->redirect($rutaaladjunto . $matricula['carnet']);
 
     }
@@ -945,7 +946,7 @@ public function generarPDF(Request $request, array $params): void
             session_start();
         }   
 
-        $matricula = Matricula::findByAsignada($id);
+        $matricula = $this->matriculaService->findByAsignada($id);
         $aprobado = $matricula['aprobado'] ?? ''; 
         $aprobado = date('d-m-Y', strtotime($aprobado));
 
@@ -1017,7 +1018,7 @@ public function generarPDF(Request $request, array $params): void
         //tomar el directorio del usuario sea vice o presi según corresponda con getuserfolder
         //y agregar la imagen de fondo
         //si no existe la imagen, usar la de base
-        $funcionariofolder = $this->getUserFolder($funcionario);
+        $funcionariofolder = $this->documentService->getUserFolder($funcionario);
         $firmaPath = $_SESSION['directoriobase'] . $funcionariofolder . $imagen_firma;
         //$imagen_fondo = $_SESSION['directoriobase'] . $imagen_base;
         //$logoPath = $_SESSION['directoriobase'] . $funcionariofolder. '/public/img/Logocertificadomatriculacion.png';
@@ -1155,7 +1156,7 @@ public function generarPDF(Request $request, array $params): void
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }   
-        $matricula = Matricula::findByAsignada($id);
+        $matricula = $this->matriculaService->findByAsignada($id);
 
         //require_once $_SESSION['directoriobase'] . '/lib/fpdf/fpdf.php'; // Ajustar según tu estructura
         //require_once $_SESSION['directoriobase'] . '/libs/phpqrcode/qrlib.php'; // Para generar QR
@@ -1211,7 +1212,7 @@ public function generarPDF(Request $request, array $params): void
         //tomar el directorio del usuario sea vice o presi según corresponda con getuserfolder
         //y agregar la imagen de fondo
         //si no existe la imagen, usar la de base
-        $funcionariofolder = DatosPersonalesController::getUserFolder($funcionario);
+        $funcionariofolder = $this->documentService->getUserFolder($funcionario);
 
         $imagen_fondo = $_SESSION['directoriobase'] . $funcionariofolder . $imagen_base;
 
@@ -1221,7 +1222,7 @@ public function generarPDF(Request $request, array $params): void
 
         // --- FOTOCARNET ---
 
-        $uploadFolder = DatosPersonalesController::getUserFolder($locuser);
+        $uploadFolder = $this->documentService->getUserFolder($locuser);
         if (!empty($matricula['fotocarnet'])) {
             $fotocarnet =  $_SESSION['directoriobase'] . '/' .$uploadFolder .$matricula['fotocarnet'];
             if (file_exists($fotocarnet)) {
@@ -1317,9 +1318,9 @@ public function generarPDF(Request $request, array $params): void
     echo $pdfFile;
     echo "<br>";
     die();
-    */    
+    */
         //Matricula::CustomQry("UPDATE matriculas SET 'carnet' = $pngFile, 'carnetpdf' = $pdfFile WHERE user_id = $locuser");
-        Matricula::updatebyUser($locuser, $data2);
+        $this->matriculaService->updateCredentialFiles($locuser, $data2);
 
         header('Content-Type: image/png');
         echo $imagick->getImageBlob();
@@ -1348,7 +1349,7 @@ public function generarPDF(Request $request, array $params): void
             die('Número de matrícula no especificado.');
         }
 
-        $matricula = Matricula::findByAsignada($id);
+        $matricula = $this->matriculaService->findByAsignada($id);
         if ($matricula == null) {
             die('Matrícula no encontrada.');
         }
@@ -1377,7 +1378,7 @@ public function generarPDF(Request $request, array $params): void
 
         // --- FOTOCARNET ---
 
-        $uploadFolder = $this->getUserFolder($locuser);
+        $uploadFolder = $this->documentService->getUserFolder($locuser);
         if (!empty($matricula['fotocarnet'])) {
             $fotocarnet =  $_SESSION['directoriobase'] . '/' .$uploadFolder . '/'.$matricula['fotocarnet'];
             if (file_exists($fotocarnet)) {
@@ -1604,7 +1605,7 @@ public function padron4matriculaview(Request $request): void
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, 'm.user_id');
-    $resultset = DatosPersonales::CustomQry($query);
+    $resultset = $this->documentService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -1644,7 +1645,7 @@ public function bajasview(Request $request): void
     
     
     
-    $resultset = DatosPersonales::CustomQry($query);
+    $resultset = $this->documentService->customQuery($query);
 
     $results = [
         "sEcho" => 1,

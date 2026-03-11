@@ -11,7 +11,7 @@ $rowcnt = 0;
     class="<?= $this->e($style['class_form']) ?>" enctype="multipart/form-data">
 
     <?php
-    use App\Core\CSRF;
+    use Foundation\Core\CSRF;
     echo CSRF::tokenField();
     ?>
 

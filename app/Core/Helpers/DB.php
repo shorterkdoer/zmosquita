@@ -2,7 +2,7 @@
 
 
 namespace App\Core\Helpers;
-use App\Core\Session;
+use Foundation\Core\Session;
 use PDO;
 
 class DB

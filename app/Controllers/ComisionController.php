@@ -3,9 +3,9 @@
 namespace App\Controllers;
 
 use App\Core\Controller;
-use App\Core\Request;
+use Foundation\Core\Request;
 use App\Models\Comision; 
-use App\Core\Session;
+use Foundation\Core\Session;
 use App\Models\Numeros;
 use App\Models\DatosPersonales;
 

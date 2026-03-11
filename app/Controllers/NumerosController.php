@@ -3,11 +3,11 @@ namespace App\Controllers;
 
 
 
-use App\Core\Request;
-use App\Core\Response;
-use App\Core\Validator;
+use Foundation\Core\Request;
+use Foundation\Core\Response;
+use Foundation\Core\Validator;
 
-use App\Core\Session;
+use Foundation\Core\Session;
 use App\Models\Numeros;
 
 // Ensure the User model exists in the App\Models namespace

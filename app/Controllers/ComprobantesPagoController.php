@@ -2,20 +2,30 @@
 
 namespace App\Controllers;
 
-use App\Core\Request;
-use App\Core\Session;
-//use App\Core\Helpers\noaliascampos;
+use Foundation\Core\Request;
+use Foundation\Core\Session;
 use App\Core\Controller;
 use App\Models\Matricula;
-use App\Core\Helpers\DateHelper;
-use App\Models\ComprobantesPago;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use App\Services\PaymentService;
 
-
-
+/**
+ * ComprobantesPagoController - Handles payment receipts management
+ *
+ * Refactored to use Service Layer for business logic
+ */
 class ComprobantesPagoController extends Controller
 {
+    protected PaymentService $paymentService;
+
+    public function __construct()
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        // Initialize service
+        $this->paymentService = new PaymentService();
+    }
     // Muestra la lista de comprobantes de pago
     public function index(Request $request): void
     {
@@ -38,7 +48,7 @@ class ComprobantesPagoController extends Controller
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
 
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
-    $resultset = ComprobantesPago::CustomQry($query);
+    $resultset = $this->paymentService->customQuery($query);
 
     $this->pendingquery = $query; // Guardamos la consulta pendiente para usarla en el script JS
     $this->pendingcolumns = json_encode($campos); // Guardamos los campos pendientes para usarlos en el script JS
@@ -47,7 +57,7 @@ class ComprobantesPagoController extends Controller
     $buttons = $cfgedit['buttons'] ?? [];
         // Ejecuta la consulta y obtiene los datos
 
-    $datos = ComprobantesPago::CustomQry($query);
+    $datos = $this->paymentService->customQuery($query);
     $zcolumns =  Self::mkcolumns($campos, $actividades);
     $zcolumns =   trim(stripslashes($zcolumns), '"');
     $this->pendingcolumns = $zcolumns; // Guardamos las columnas pendientes para usarlas en el script JS
@@ -97,7 +107,7 @@ class ComprobantesPagoController extends Controller
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
-    $resultset = ComprobantesPago::CustomQry($query);
+    $resultset = $this->paymentService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -123,13 +133,13 @@ class ComprobantesPagoController extends Controller
             return;
         }
 
-        $datos = ComprobantesPago::findById($id);
+        $datos = $this->paymentService->findById((int)$id);
         if (!$datos) {
             Session::flash('error', 'Comprobante no encontrado.');
             $this->redirect('/miscomprobantes');
             return;
         }
-        $datos['userfolder'] = $this->getUserFolder($datos['user_id']); // Get user upload folder
+        $datos['userfolder'] = $this->paymentService->getUserFolderRelative($datos['user_id']);
         $crudstyle = require $_SESSION['directoriobase'] . '/config/cruds/defaults/crudstyle.php';
         $style = $crudstyle['style'] ?? [];
         $cfgcreate = require $_SESSION['directoriobase'] . '/config/cruds/comprobantespago/comprobantespago_ver.php';
@@ -193,138 +203,40 @@ class ComprobantesPagoController extends Controller
     }
 
 
-    // Procesa el formulario y guarda la nueva 
-
-public function store(Request $request, array $params)
-{
-    $id = $params[0] ?? null;
-    if (!$id) {
-        Session::flash('error', 'Algo salió mal!');
-        return $this->redirect('/miscomprobantes');
-    }
-
-    // Validaciones básicas del upload
-    if (
-        !isset($_FILES['comprobante']) ||
-        $_FILES['comprobante']['error'] !== UPLOAD_ERR_OK ||
-        !is_uploaded_file($_FILES['comprobante']['tmp_name'])
-    ) {
-        throw new \Exception('No se ha seleccionado ningún archivo válido.');
-    }
-
-    // Config
-    $allowedExt = ['pdf','png','jpg','jpeg']; // ajustá a tus necesidades
-    $maxBytes   = 15 * 1024 * 1024; // 15 MB, ejemplo
-
-    $file      = $_FILES['comprobante'];
-    $origName  = $file['name'] ?? 'archivo';
-    $tmpPath   = $file['tmp_name'];
-    $uploadDir = $this->getUserUploadFolder($id);
-
-    // Crear dir si no existe
-    if (!is_dir($uploadDir)) {
-        if (!mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
-            throw new \RuntimeException('No se pudo crear el directorio de subida.');
+    // Procesa el formulario y guarda la nueva
+    public function store(Request $request, array $params): void
+    {
+        $id = $params[0] ?? null;
+        if (!$id) {
+            Session::flash('error', 'Algo salió mal!');
+            $this->redirect('/miscomprobantes');
+            return;
         }
-        @chmod($uploadDir, 0777);
+
+        // Check file is present
+        if (!isset($_FILES['comprobante'])) {
+            Session::flash('error', 'No se ha seleccionado ningún archivo.');
+            $this->redirect('/miscomprobantes');
+            return;
+        }
+
+        $monto = $_POST['monto'] ?? null;
+        $fecha = $_POST['fecha'] ?? null;
+        $observaciones = $_POST['observaciones'] ?? null;
+
+        $result = $this->paymentService->uploadWithFile((int)$id, $_FILES['comprobante'], $monto, $fecha, $observaciones);
+
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/miscomprobantes');
+            return;
+        }
+
+        Session::flash('success', 'Comprobante guardado exitosamente.');
+        $this->redirect('/miscomprobantes');
     }
 
-    // Chequeos de tamaño / extensión
-    if ($file['size'] > $maxBytes) {
-        throw new \Exception('El archivo supera el tamaño máximo permitido.');
-    }
-
-    $sanitized  = $this->sanitizeFilename($origName);
-    $ext        = strtolower(pathinfo($sanitized, PATHINFO_EXTENSION));
-    if ($ext === '') {
-        throw new \Exception('El archivo no tiene extensión.');
-    }
-    if (!in_array($ext, $allowedExt, true)) {
-        throw new \Exception('Tipo de archivo no permitido.');
-    }
-
-    // Generar nombre único en el directorio destino
-    $uniqueName = $this->uniqueFilename($uploadDir, $sanitized);
-
-    // Mover el archivo primero (para asegurar que el nombre está disponible)
-    $destPath = rtrim($uploadDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $uniqueName;
-    if (!move_uploaded_file($tmpPath, $destPath)) {
-        throw new \Exception('Error al subir el archivo.');
-    }
-
-    // (Opcional) Ajustar permisos del archivo subido
-    @chmod($destPath, 0644);
-
-    // Preparar datos a insertar (usando el nombre final)
-    $zzdata = [
-        'user_id'       => $id,
-        'comprobante'   => $uniqueName,                 // <-- nombre único definitivo
-        'monto'         => $_POST['monto'] ?? null,
-        'fecha'         => $_POST['fecha'] ?? null,
-        'observaciones' => $_POST['observaciones'] ?? null,
-    ];
-
-    // Insertar en DB; si falla, borrar el archivo para no dejarlo huérfano
-    try {
-        ComprobantesPago::create($zzdata);
-    } catch (\Throwable $e) {
-        @unlink($destPath);
-        throw $e;
-    }
-
-    Session::flash('success', 'Comprobante guardado exitosamente.');
-    return $this->redirect('/miscomprobantes');
-}
-
-/**
- * Sanitiza el nombre de archivo: quita ruta, normaliza espacios/caracteres, mantiene extensión.
- */
-private function sanitizeFilename(string $name): string
-{
-    // Quitar cualquier componente de ruta
-    $name = basename($name);
-
-    // Separar base/ext
-    $ext  = pathinfo($name, PATHINFO_EXTENSION);
-    $base = pathinfo($name, PATHINFO_FILENAME);
-
-    // Normalizar: quitar acentos, espacios->_, solo [a-z0-9._-]
-    $base = iconv('UTF-8', 'ASCII//TRANSLIT', $base);
-    $base = preg_replace('/[^A-Za-z0-9._-]+/', '_', $base);
-    $base = trim($base, '._-');
-    if ($base === '') {
-        $base = 'archivo';
-    }
-
-    $ext = strtolower($ext);
-    return $ext ? ($base . '.' . $ext) : $base;
-}
-
-/**
- * Devuelve un nombre único preservando la extensión.
- * Formato: {base}-{YYYYMMDD-HHMMSS}-{8hex}.{ext}
- */
-private function uniqueFilename(string $dir, string $sanitized): string
-{
-    $ext  = pathinfo($sanitized, PATHINFO_EXTENSION);
-    $base = pathinfo($sanitized, PATHINFO_FILENAME);
-
-    // Prefijo con timestamp + sufijo aleatorio
-    $suffix = date('Ymd-His') . '-' . bin2hex(random_bytes(4));
-    $candidate = $base . '-' . $suffix . ($ext ? ('.' . $ext) : '');
-
-    // En el (rarísimo) caso de colisión, iterar
-    $full = rtrim($dir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $candidate;
-    $i = 0;
-    while (file_exists($full)) {
-        $i++;
-        $candidate = $base . '-' . $suffix . '-' . $i . ($ext ? ('.' . $ext) : '');
-        $full = rtrim($dir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $candidate;
-    }
-    return $candidate;
-}
-
-    // Procesa el formulario de edición y actualiza la 
+    // Procesa el formulario de edición y actualiza la
     public function update(Request $request, array $params): void
     {
         $id = $params[0] ?? null;
@@ -341,18 +253,26 @@ private function uniqueFilename(string $dir, string $sanitized): string
             return;
         }
 
-        if (!ComprobantesPago::find($id)) {
+        $comprobante = $this->paymentService->findById((int)$id);
+        if (!$comprobante) {
             Session::flash('error', 'Comprobante no encontrado.');
             $this->redirect('/miscomprobantes');
             return;
         }
 
-        ComprobantesPago::update($id, ['nombre' => $nombre]);
+        $result = $this->paymentService->update((int)$id, ['nombre' => $nombre]);
+
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/miscomprobantes');
+            return;
+        }
+
         Session::flash('success', 'Comprobante actualizada.');
         $this->redirect('/miscomprobantes');
     }
 
-    // Elimina una 
+    // Elimina una
     public function delete(Request $request, array $params): void
     {
         $id = $params[0] ?? null;
@@ -362,31 +282,28 @@ private function uniqueFilename(string $dir, string $sanitized): string
             return;
         }
 
-        $comprob = ComprobantesPago::find($id);
-        if (!$comprob) {
-            Session::flash('error', 'Comprobante no encontrado.');
+        $result = $this->paymentService->delete((int)$id);
+
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
             $this->redirect('/miscomprobantes');
             return;
         }
 
-        ComprobantesPago::delete($id);
         Session::flash('success', 'Comprobante eliminado.');
         $this->redirect('/miscomprobantes');
     }
 
     public function vista(Request $request, array $params): void
     {
-        
-        $id = $params[0] ?? null; // Get the ID from the URL parameters
+        $id = $params[0] ?? null;
         if (!$id) {
             Session::flash('error', 'ID de comprobante no especificado.');
             $this->redirect('/miscomprobantes');
             return;
         }
-        
-//        $id = $request->input('id');
 
-        $data = ComprobantesPago::find($id);
+        $data = $this->paymentService->findById((int)$id);
         if (!$data) {
             Session::flash('error', 'Comprobante no encontrado.');
             $this->redirect('/miscomprobantes');
@@ -397,23 +314,22 @@ private function uniqueFilename(string $dir, string $sanitized): string
 
         $cfgedit     = require $_SESSION['directoriobase'] . '/config/cruds/comprobantespago/comprobantespago_borrar.php';
         $cfg         = $cfgedit['config']    ?? [];
-        $cfg['url_action'] .= '/' . $id; // <— se agrega el id a la url
+        $cfg['url_action'] .= '/' . $id;
         $campos      = $cfgedit['campos']    ?? [];
         $actividades = $cfgedit['actividades'] ?? [];
         $comandos    = $cfgedit['comandos']  ?? [];
         $buttons     = $cfgedit['buttons']   ?? [];
-    
+
         $this->view('cruds/index', [
             'cfg'      => $cfg,
-            'fields'   => $campos,     // <— coherente con index/create
-            'values'   => $data,       // array simple con claves=>valores
+            'fields'   => $campos,
+            'values'   => $data,
             'actions'  => $actividades,
             'comandos' => $comandos,
             'buttons'  => $buttons,
             'id'      => 'id',
-            'user_id' => $_SESSION['user']['id'], // Add user ID for file upload
+            'user_id' => $_SESSION['user']['id'],
         ]);
-
     }
     public function menucobranzas(Request $request): void
     {
@@ -483,7 +399,7 @@ private function uniqueFilename(string $dir, string $sanitized): string
     $buttons = $cfgedit['buttons'] ?? [];
         // Ejecuta la consulta y obtiene los datos
 
-    $datos = ComprobantesPago::CustomQry($query);
+    $datos = $this->paymentService->customQuery($query);
     $zcolumns =  Self::mkcolumns($jscampos, $actividades);
     $zcolumns =   trim(stripslashes($zcolumns), '"');
     $this->pendingcolumns = $zcolumns; // Guardamos las columnas pendientes para usarlas en el script JS
@@ -513,17 +429,18 @@ private function uniqueFilename(string $dir, string $sanitized): string
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
-        
+
         $user = $_SESSION['user'] ?? null;
         if (!$user) {
             Session::flash('error', 'Debe iniciar sesión.');
             $this->redirect('/login');
+            return;
         }
 
-             
         if ($user['role'] !== 'admin') {
             Session::flash('error', 'No tiene permiso para editar estos datos.');
             $this->redirect('/dashboard');
+            return;
         }
 
         $crudstyle = require $_SESSION['directoriobase'] . '/config/cruds/defaults/crudstyle.php';
@@ -535,23 +452,18 @@ private function uniqueFilename(string $dir, string $sanitized): string
         $actividades = $cfgedit['actividades'] ?? [];
         $comandos    = $cfgedit['comandos']  ?? [];
         $buttons     = $cfgedit['buttons']   ?? [];
-        $campos['mes']['options'] = ComprobantesPago::meses();
-        //$campos['year']['options'] = ComprobantesPago::years();
+        $campos['mes']['options'] = $this->paymentService->getMonths();
+
         $this->view('cruds/index', [
             'cfg'      => $cfg,
-            'fields'   => $campos,     // <— coherente con index/create
-            'values'   => $datos,       // array simple con claves=>valores
+            'fields'   => $campos,
+            'values'   => $datos ?? [],
             'actions'  => $actividades,
             'comandos' => $comandos,
             'buttons'  => $buttons,
-            'id'      => $id,
+            'id'      => $id ?? null,
             'style'    => $style
-            
         ]);
-  
-        //$tablaHTML = renderTablaHTML($config, $datos, $provincias, $ciudades);
-
-
     }
     public function datacobranzas(Request $request): void
     {
@@ -579,7 +491,7 @@ private function uniqueFilename(string $dir, string $sanitized): string
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
-    $resultset = ComprobantesPago::CustomQry($query);
+    $resultset = $this->paymentService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -636,7 +548,7 @@ private function uniqueFilename(string $dir, string $sanitized): string
     $buttons = $cfgedit['buttons'] ?? [];
         // Ejecuta la consulta y obtiene los datos
 
-    $datos = ComprobantesPago::CustomQry($query);
+    $datos = $this->paymentService->customQuery($query);
     $zcolumns =  Self::mkcolumns($jscampos, $actividades);
     $zcolumns =   trim(stripslashes($zcolumns), '"');
     $this->pendingcolumns = $zcolumns; // Guardamos las columnas pendientes para usarlas en el script JS
@@ -705,7 +617,7 @@ private function uniqueFilename(string $dir, string $sanitized): string
     $buttons = $cfgedit['buttons'] ?? [];
         // Ejecuta la consulta y obtiene los datos
 
-    $datos = ComprobantesPago::CustomQry($query);
+    $datos = $this->paymentService->customQuery($query);
     $_SESSION['matriculado4cobros'] = " (c.user_id = " . $matriculado . ")";
     $zcolumns =  Self::mkcolumns($jscampos, $actividades);
     $zcolumns =   trim(stripslashes($zcolumns), '"');
@@ -759,7 +671,7 @@ private function uniqueFilename(string $dir, string $sanitized): string
     $order = $cfgedit['QrySpec']['order'] ?? [];
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
-    $resultset = ComprobantesPago::CustomQry($query);
+    $resultset = $this->paymentService->customQuery($query);
 
     $results = [
         "sEcho" => 1,
@@ -810,88 +722,38 @@ private function uniqueFilename(string $dir, string $sanitized): string
     }
 
 
-    // Procesa el formulario y guarda la nueva 
-
-public function storelotecolegio(Request $request, array $params)
-{
-    $id = $params[0] ?? null;
-    if (!$id) {
-        Session::flash('error', 'Algo salió mal!');
-        return $this->redirect('/miscomprobantes');
-    }
-
-    // Validaciones básicas del upload
-    if (
-        !isset($_FILES['comprobante']) ||
-        $_FILES['comprobante']['error'] !== UPLOAD_ERR_OK ||
-        !is_uploaded_file($_FILES['comprobante']['tmp_name'])
-    ) {
-        throw new \Exception('No se ha seleccionado ningún archivo válido.');
-    }
-
-    // Config
-    $allowedExt = ['pdf','png','jpg','jpeg']; // ajustá a tus necesidades
-    $maxBytes   = 15 * 1024 * 1024; // 15 MB, ejemplo
-
-    $file      = $_FILES['comprobante'];
-    $origName  = $file['name'] ?? 'archivo';
-    $tmpPath   = $file['tmp_name'];
-    $uploadDir = $this->getUserUploadFolder($id);
-
-    // Crear dir si no existe
-    if (!is_dir($uploadDir)) {
-        if (!mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
-            throw new \RuntimeException('No se pudo crear el directorio de subida.');
+    // Procesa el formulario y guarda la nueva (lote colegio)
+    public function storelotecolegio(Request $request, array $params): void
+    {
+        $id = $params[0] ?? null;
+        if (!$id) {
+            Session::flash('error', 'Algo salió mal!');
+            $this->redirect('/miscomprobantes');
+            return;
         }
-        @chmod($uploadDir, 0777);
+
+        // Check file is present
+        if (!isset($_FILES['comprobante'])) {
+            Session::flash('error', 'No se ha seleccionado ningún archivo.');
+            $this->redirect('/miscomprobantes');
+            return;
+        }
+
+        $monto = $_POST['monto'] ?? null;
+        $fecha = $_POST['fecha'] ?? null;
+        $observaciones = $_POST['observaciones'] ?? null;
+
+        $result = $this->paymentService->uploadWithFile((int)$id, $_FILES['comprobante'], $monto, $fecha, $observaciones);
+
+        if (!$result['success']) {
+            Session::flash('error', $result['error']);
+            $this->redirect('/miscomprobantes');
+            return;
+        }
+
+        Session::flash('success', 'Comprobante guardado exitosamente.');
+        $this->redirect('/miscomprobantes');
     }
-
-    // Chequeos de tamaño / extensión
-    if ($file['size'] > $maxBytes) {
-        throw new \Exception('El archivo supera el tamaño máximo permitido.');
-    }
-
-    $sanitized  = $this->sanitizeFilename($origName);
-    $ext        = strtolower(pathinfo($sanitized, PATHINFO_EXTENSION));
-    if ($ext === '') {
-        throw new \Exception('El archivo no tiene extensión.');
-    }
-    if (!in_array($ext, $allowedExt, true)) {
-        throw new \Exception('Tipo de archivo no permitido.');
-    }
-
-    // Generar nombre único en el directorio destino
-    $uniqueName = $this->uniqueFilename($uploadDir, $sanitized);
-
-    // Mover el archivo primero (para asegurar que el nombre está disponible)
-    $destPath = rtrim($uploadDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $uniqueName;
-    if (!move_uploaded_file($tmpPath, $destPath)) {
-        throw new \Exception('Error al subir el archivo.');
-    }
-
-    // (Opcional) Ajustar permisos del archivo subido
-    @chmod($destPath, 0644);
-
-    // Preparar datos a insertar (usando el nombre final)
-    $zzdata = [
-        'user_id'       => $id,
-        'comprobante'   => $uniqueName,                 // <-- nombre único definitivo
-        'monto'         => $_POST['monto'] ?? null,
-        'fecha'         => $_POST['fecha'] ?? null,
-        'observaciones' => $_POST['observaciones'] ?? null,
-    ];
-
-    // Insertar en DB; si falla, borrar el archivo para no dejarlo huérfano
-    try {
-        ComprobantesPago::create($zzdata);
-    } catch (\Throwable $e) {
-        @unlink($destPath);
-        throw $e;
-    }
-
-    Session::flash('success', 'Comprobante guardado exitosamente.');
-    return $this->redirect('/miscomprobantes');
-}
 
     public function detallelotecolegio(Request $request): void
     {
@@ -914,7 +776,7 @@ public function storelotecolegio(Request $request, array $params)
     require_once $_SESSION['directoriobase'] . '/app/Core/Helpers/string4query.php';
 
     $query = str4qry($tables, $campos, $actividades, $filter, $joinconditions, $order, $id_field);
-    $resultset = ComprobantesPago::CustomQry($query);
+    $resultset = $this->paymentService->customQuery($query);
 
     $this->pendingquery = $query; // Guardamos la consulta pendiente para usarla en el script JS
     $this->pendingcolumns = json_encode($campos); // Guardamos los campos pendientes para usarlos en el script JS
@@ -923,7 +785,7 @@ public function storelotecolegio(Request $request, array $params)
     $buttons = $cfgedit['buttons'] ?? [];
         // Ejecuta la consulta y obtiene los datos
 
-    $datos = ComprobantesPago::CustomQry($query);
+    $datos = $this->paymentService->customQuery($query);
     $zcolumns =  Self::mkcolumns($campos, $actividades);
     $zcolumns =   trim(stripslashes($zcolumns), '"');
     $this->pendingcolumns = $zcolumns; // Guardamos las columnas pendientes para usarlas en el script JS
@@ -1054,54 +916,17 @@ public function loteColegioConfirm(Request $request, array $params = []): void
 
     unset($_SESSION['lote_colegio_preview']);
 
-    $ok      = 0;
-    $errores = [];
+    $result = $this->paymentService->batchCreateFromColegio($fecha, $monto, $rows);
 
-    foreach ($rows as $r) {
-        $matriculaNumero = (int)$r['matricula'];
-        if (!$matriculaNumero) {
-            $errores[] = "Fila con matrícula vacía para {$r['nombre']} ({$r['dni']})";
-            continue;
-        }
+    $msg = "Se generaron {$result['created']} de {$result['total']} comprobantes.";
 
-        $matr = Matricula::findByAsignada($matriculaNumero);
-        if (!$matr) {
-            $errores[] = "No se encontró matrícula asignada {$matriculaNumero} ({$r['nombre']}, DNI {$r['dni']})";
-            continue;
-        }
-
-        $userId = (int)($matr['user_id'] ?? 0);
-        if (!$userId) {
-            $errores[] = "Matrícula {$matriculaNumero} no tiene user_id asociado.";
-            continue;
-        }
-
-        $data = [
-            'user_id'       => $userId,
-            'comprobante'   => 'cobrocolegio.png',                 // <- imagen genérica
-            'fecha'         => $fecha,
-            'monto'         => $monto,
-            'observaciones' => 'Informado por el Colegio',
-        ];
-
-        try {
-            ComprobantesPago::create($data);
-            $ok++;
-        } catch (\Throwable $e) {
-            $errores[] = "Error guardando matrícula {$matriculaNumero}: " . $e->getMessage();
-        }
-    }
-
-    $msg = "Se generaron {$ok} comprobantes.";
-
-    if ($errores) {
-        $msg .= " Algunos registros no pudieron ser importados:\n" . implode("\n", $errores);
+    if ($result['errors']) {
+        $msg .= " Algunos registros no pudieron ser importados:\n" . implode("\n", $result['errors']);
         Session::flash('error', nl2br($msg));
     } else {
         Session::flash('success', $msg);
     }
 
-    // Podés ajustar esta URL a donde listás los comprobantes
     $this->redirect('/miscomprobantes');
 }
 

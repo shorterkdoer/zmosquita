@@ -3,9 +3,9 @@
 namespace App\Controllers;
 
 use App\Core\Controller;
-use App\Core\Request;
+use Foundation\Core\Request;
 use App\Models\Provincia;
-use App\Core\Session;
+use Foundation\Core\Session;
 use App\Core\MasterCrud;
 
 use App\Core\AuthMiddleware;

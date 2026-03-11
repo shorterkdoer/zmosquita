@@ -2,7 +2,7 @@
 // config/routes.php
 
 use App\Controllers\AgendaDeCitasController;
-use App\Core\Router;
+use Foundation\Core\Router;
 //use DocumentTemplateController;
 use App\Controllers\AuthController;
 use App\Controllers\HomeController;

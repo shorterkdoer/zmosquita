@@ -1,8 +1,8 @@
 <?php
 
 namespace App\Middlewares;
-use App\Core\Response;
-use App\Core\Request;
+
+use Foundation\Middleware\BaseMiddleware;
 
 class GuestMiddleware extends BaseMiddleware
 {
@@ -12,7 +12,7 @@ class GuestMiddleware extends BaseMiddleware
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
-        
+
         // Si no hay usuario logueado, permite continuar (mostrar el login o registro).
     }
 }

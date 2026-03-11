@@ -2,7 +2,7 @@
 
 namespace App\Middlewares;
 
-use App\Middlewares\BaseMiddleware;
+use Foundation\Middleware\BaseMiddleware;
 
 class AdminMiddleware extends BaseMiddleware
 {
