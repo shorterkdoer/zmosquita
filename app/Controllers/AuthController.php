@@ -455,6 +455,65 @@ class AuthController extends Controller
     }
 
     /**
+     * Show user dashboard
+     */
+    public function showUserDashboard(): void
+    {
+        // Check if user is authenticated
+        if (!$this->auth->isAuthenticated()) {
+            Session::flash('error', 'Debes iniciar sesión para acceder al dashboard.');
+            Response::redirect('/login');
+            return;
+        }
+
+        // Get current user
+        $user = $this->auth->currentUser();
+        if (!$user) {
+            Session::flash('error', 'Sesión inválida. Por favor, inicia sesión nuevamente.');
+            Response::redirect('/login');
+            return;
+        }
+
+        // Render dashboard with user data
+        $this->view('dashboard/user', [
+            'user' => $user
+        ]);
+    }
+
+    /**
+     * Show admin dashboard
+     */
+    public function showAdminDashboard(): void
+    {
+        // Check if user is authenticated
+        if (!$this->auth->isAuthenticated()) {
+            Session::flash('error', 'Debes iniciar sesión para acceder al dashboard.');
+            Response::redirect('/login');
+            return;
+        }
+
+        // Check if user has admin role
+        if (!$this->auth->hasRole('admin')) {
+            Session::flash('error', 'No tienes permisos para acceder al panel administrativo.');
+            Response::redirect('/user-dashboard');
+            return;
+        }
+
+        // Get current user
+        $user = $this->auth->currentUser();
+        if (!$user) {
+            Session::flash('error', 'Sesión inválida. Por favor, inicia sesión nuevamente.');
+            Response::redirect('/login');
+            return;
+        }
+
+        // Render admin dashboard with user data
+        $this->view('dashboard/admin', [
+            'user' => $user
+        ]);
+    }
+
+    /**
      * Send revision notification emails (helper method)
      * @deprecated Use EmailService directly
      */

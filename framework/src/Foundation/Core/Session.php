@@ -125,6 +125,22 @@ class Session
     public static function get(string $key, mixed $default = null): mixed
     {
         self::start();
+
+        // Support dot notation for nested arrays (e.g., 'user.role')
+        if (str_contains($key, '.')) {
+            $keys = explode('.', $key);
+            $value = $_SESSION;
+
+            foreach ($keys as $k) {
+                if (!is_array($value) || !array_key_exists($k, $value)) {
+                    return $default;
+                }
+                $value = $value[$k];
+            }
+
+            return $value;
+        }
+
         return $_SESSION[$key] ?? $default;
     }
 
@@ -143,6 +159,22 @@ class Session
     public static function has(string $key): bool
     {
         self::start();
+
+        // Support dot notation for nested arrays
+        if (str_contains($key, '.')) {
+            $keys = explode('.', $key);
+            $value = $_SESSION;
+
+            foreach ($keys as $k) {
+                if (!is_array($value) || !array_key_exists($k, $value)) {
+                    return false;
+                }
+                $value = $value[$k];
+            }
+
+            return true;
+        }
+
         return isset($_SESSION[$key]);
     }
 

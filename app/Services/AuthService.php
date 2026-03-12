@@ -21,9 +21,9 @@ class AuthService
 
     public function __construct(
         EmailService $emails,
-        UserRepository $userRepo = null,
-        DatosPersonalesRepository $datosPersonalesRepo = null,
-        MatriculaRepository $matriculaRepo = null
+        ?UserRepository $userRepo = null,
+        ?DatosPersonalesRepository $datosPersonalesRepo = null,
+        ?MatriculaRepository $matriculaRepo = null
     ) {
         $this->emails = $emails;
         $this->userRepo = $userRepo ?? new UserRepository();

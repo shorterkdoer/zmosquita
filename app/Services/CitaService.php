@@ -17,9 +17,9 @@ class CitaService
     protected DatosPersonalesRepository $datosPersonalesRepo;
 
     public function __construct(
-        CitaRepository $citaRepo = null,
-        UserRepository $userRepo = null,
-        DatosPersonalesRepository $datosPersonalesRepo = null
+        ?CitaRepository $citaRepo = null,
+        ?UserRepository $userRepo = null,
+        ?DatosPersonalesRepository $datosPersonalesRepo = null
     ) {
         $this->citaRepo = $citaRepo ?? new CitaRepository();
         $this->userRepo = $userRepo ?? new UserRepository();

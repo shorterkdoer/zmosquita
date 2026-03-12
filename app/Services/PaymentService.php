@@ -15,8 +15,8 @@ class PaymentService
     protected MatriculaRepository $matriculaRepo;
 
     public function __construct(
-        ComprobanteRepository $comprobanteRepo = null,
-        MatriculaRepository $matriculaRepo = null
+        ?ComprobanteRepository $comprobanteRepo = null,
+        ?MatriculaRepository $matriculaRepo = null
     ) {
         $this->comprobanteRepo = $comprobanteRepo ?? new ComprobanteRepository();
         $this->matriculaRepo = $matriculaRepo ?? new MatriculaRepository();

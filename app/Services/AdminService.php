@@ -17,9 +17,9 @@ class AdminService
     protected TramiteRepository $tramiteRepo;
 
     public function __construct(
-        UserRepository $userRepo = null,
-        MatriculaRepository $matriculaRepo = null,
-        TramiteRepository $tramiteRepo = null
+        ?UserRepository $userRepo = null,
+        ?MatriculaRepository $matriculaRepo = null,
+        ?TramiteRepository $tramiteRepo = null
     ) {
         $this->userRepo = $userRepo ?? new UserRepository();
         $this->matriculaRepo = $matriculaRepo ?? new MatriculaRepository();

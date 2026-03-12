@@ -83,6 +83,12 @@ class CSRF
      */
     public static function regenerate(): void
     {
-        self::getInstance()->renewToken();
+        // ParagonIE\AntiCSRF doesn't have a renewToken() method
+        // We need to clear the session token cache and regenerate
+        if (isset($_SESSION['paragonie']['csrf'])) {
+            unset($_SESSION['paragonie']['csrf']);
+        }
+        // Generate a new token by calling insertToken
+        self::getInstance()->insertToken('', false);
     }
 }

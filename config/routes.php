@@ -58,7 +58,6 @@ Router::get('/admin-dashboard', [AuthController::class, 'showAdminDashboard'], [
 
 //user menu
 Router::get('/user-dashboard', [AuthController::class, 'showUserDashboard']);
-Router::get('/matriculas', [AuthController::class, 'showMenuMatriculas']);
 
 Router::get('/controlinscripciones', [AuthController::class, 'showMenuCtrlMatric'], [AdminMiddleware::class]);
 Router::get('/controldocumentacion', [AuthController::class, 'showMenuCtrlDocu'], [AdminMiddleware::class]);
@@ -276,7 +275,7 @@ Router::get('/datospersonales/roleview/{id}', [DatosPersonalesController::class,
 Router::post('/datospersonales/roleupdate/{id}', [DatosPersonalesController::class, 'roleupdate'], [AuthMiddleware::class]);
 
 
-Router::get('/matriculas', [MatriculaController::class, 'opcmatric'], [AuthMiddleware::class]);
+Router::get('/matriculas', [MatriculaController::class, 'menu_matric'], [AuthMiddleware::class]);
 
 
 Router::get('/opcionmatricula', [MatriculaController::class, 'matric_index'], [AuthMiddleware::class]);

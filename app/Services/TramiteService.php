@@ -19,9 +19,9 @@ class TramiteService
 
     public function __construct(
         EmailService $emails,
-        TramiteRepository $tramiteRepo = null,
-        UserRepository $userRepo = null,
-        DatosPersonalesRepository $datosPersonalesRepo = null
+        ?TramiteRepository $tramiteRepo = null,
+        ?UserRepository $userRepo = null,
+        ?DatosPersonalesRepository $datosPersonalesRepo = null
     ) {
         $this->emails = $emails;
         $this->tramiteRepo = $tramiteRepo ?? new TramiteRepository();

@@ -15,64 +15,29 @@ use PHPUnit\Framework\TestCase;
 class AuthServiceTest extends TestCase
 {
     private AuthService $authService;
-    private EmailService $emailServiceMock;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Create mock email service
-        $this->emailServiceMock = $this->createMock(EmailService::class);
+        // Initialize session
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $_SESSION['directoriobase'] = dirname(__DIR__, 3);
+        $_SESSION['base_url'] = 'http://localhost';
 
         $this->authService = new AuthService(
-            $this->emailServiceMock
+            new EmailService()
         );
     }
 
-    /**
-     * Test that validateEmail returns false for invalid email
-     */
-    public function testValidateEmailReturnsFalseForInvalidEmail(): void
+    protected function tearDown(): void
     {
-        $result = $this->authService->validateEmail('invalid-email');
-        $this->assertFalse($result);
-    }
-
-    /**
-     * Test that validateEmail returns true for valid email
-     */
-    public function testValidateEmailReturnsTrueForValidEmail(): void
-    {
-        $result = $this->authService->validateEmail('test@example.com');
-        $this->assertTrue($result);
-    }
-
-    /**
-     * Test that validatePassword returns false for weak password
-     */
-    public function testValidatePasswordReturnsFalseForWeakPassword(): void
-    {
-        $result = $this->authService->validatePassword('123');
-        $this->assertFalse($result);
-    }
-
-    /**
-     * Test that validatePassword returns true for strong password
-     */
-    public function testValidatePasswordReturnsTrueForStrongPassword(): void
-    {
-        $result = $this->authService->validatePassword('StrongPass123!');
-        $this->assertTrue($result);
-    }
-
-    /**
-     * Test that validatePassword returns errors for weak password
-     */
-    public function testValidatePasswordReturnsErrorsForWeakPassword(): void
-    {
-        $result = $this->authService->validatePassword('weak');
-        $this->assertIsArray($result);
-        $this->assertNotEmpty($result);
+        // Clear session data after each test
+        $_SESSION = [];
+        parent::tearDown();
     }
 
     /**
@@ -91,65 +56,51 @@ class AuthServiceTest extends TestCase
     }
 
     /**
-     * Test logout returns success array
+     * Test isAuthenticated returns false when no user in session
      */
-    public function testLogoutReturnsSuccessArray(): void
-    {
-        $_SESSION['user'] = ['id' => 1, 'email' => 'test@example.com'];
-
-        $result = $this->authService->logout();
-
-        $this->assertIsArray($result);
-        $this->assertTrue($result['success']);
-        $this->assertNull($result['error']);
-    }
-
-    /**
-     * Test isLoggedIn returns false when no user in session
-     */
-    public function testIsLoggedInReturnsFalseWhenNoUserInSession(): void
+    public function testIsAuthenticatedReturnsFalseWhenNoUserInSession(): void
     {
         // Clear session
         $_SESSION = [];
 
-        $result = $this->authService->isLoggedIn();
+        $result = $this->authService->isAuthenticated();
 
         $this->assertFalse($result);
     }
 
     /**
-     * Test isLoggedIn returns true when user in session
+     * Test isAuthenticated returns true when user in session
      */
-    public function testIsLoggedInReturnsTrueWhenUserInSession(): void
+    public function testIsAuthenticatedReturnsTrueWhenUserInSession(): void
     {
         $_SESSION['user'] = ['id' => 1, 'email' => 'test@example.com'];
 
-        $result = $this->authService->isLoggedIn();
+        $result = $this->authService->isAuthenticated();
 
         $this->assertTrue($result);
     }
 
     /**
-     * Test getCurrentUser returns null when no user in session
+     * Test currentUser returns null when no user in session
      */
-    public function testGetCurrentUserReturnsNullWhenNoUserInSession(): void
+    public function testCurrentUserReturnsNullWhenNoUserInSession(): void
     {
         $_SESSION = [];
 
-        $result = $this->authService->getCurrentUser();
+        $result = $this->authService->currentUser();
 
         $this->assertNull($result);
     }
 
     /**
-     * Test getCurrentUser returns user array when user in session
+     * Test currentUser returns user array when user in session
      */
-    public function testGetCurrentUserReturnsUserArrayWhenUserInSession(): void
+    public function testCurrentUserReturnsUserArrayWhenUserInSession(): void
     {
         $testUser = ['id' => 1, 'email' => 'test@example.com', 'role' => 'user'];
         $_SESSION['user'] = $testUser;
 
-        $result = $this->authService->getCurrentUser();
+        $result = $this->authService->currentUser();
 
         $this->assertIsArray($result);
         $this->assertEquals($testUser, $result);
@@ -192,25 +143,71 @@ class AuthServiceTest extends TestCase
     }
 
     /**
-     * Test requireRole throws exception when user doesn't have role
+     * Test getCurrentRole returns null when no user in session
      */
-    public function testRequireRoleThrowsExceptionWhenUserDoesNotHaveRole(): void
+    public function testGetCurrentRoleReturnsNullWhenNoUserInSession(): void
     {
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Acceso no autorizado');
+        $_SESSION = [];
 
-        $_SESSION['user'] = ['id' => 1, 'email' => 'test@example.com', 'role' => 'user'];
+        $result = $this->authService->getCurrentRole();
 
-        $this->authService->requireRole('admin');
+        $this->assertNull($result);
     }
 
     /**
-     * Test requireRole does nothing when user has role
+     * Test getCurrentRole returns role when user in session
      */
-    public function testRequireRoleDoesNothingWhenUserHasRole(): void
+    public function testGetCurrentRoleReturnsRoleWhenUserInSession(): void
     {
         $_SESSION['user'] = ['id' => 1, 'email' => 'admin@example.com', 'role' => 'admin'];
 
-        $this->assertNull($this->authService->requireRole('admin'));
+        $result = $this->authService->getCurrentRole();
+
+        $this->assertEquals('admin', $result);
+    }
+
+    /**
+     * Test login returns error for invalid credentials
+     */
+    public function testLoginReturnsErrorForInvalidCredentials(): void
+    {
+        $result = $this->authService->login('nonexistent@example.com', 'wrongpassword');
+
+        $this->assertFalse($result['success']);
+        $this->assertNotEmpty($result['error']);
+        $this->assertNull($result['user']);
+    }
+
+    /**
+     * Test register fails for invalid email
+     */
+    public function testRegisterFailsForInvalidEmail(): void
+    {
+        $result = $this->authService->register('invalid-email', 'StrongPass123!');
+
+        $this->assertFalse($result['success']);
+        $this->assertNotEmpty($result['error']);
+    }
+
+    /**
+     * Test register fails for weak password
+     */
+    public function testRegisterFailsForWeakPassword(): void
+    {
+        $result = $this->authService->register('test@example.com', 'weak');
+
+        $this->assertFalse($result['success']);
+        $this->assertNotEmpty($result['error']);
+    }
+
+    /**
+     * Test activate fails for invalid token
+     */
+    public function testActivateFailsForInvalidToken(): void
+    {
+        $result = $this->authService->activate('invalid-token');
+
+        $this->assertFalse($result['success']);
+        $this->assertNotEmpty($result['error']);
     }
 }

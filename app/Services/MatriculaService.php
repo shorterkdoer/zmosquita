@@ -21,9 +21,9 @@ class MatriculaService
     public function __construct(
         TramiteService $tramites,
         EmailService $emails,
-        MatriculaRepository $matriculaRepo = null,
-        DatosPersonalesRepository $datosPersonalesRepo = null,
-        UserRepository $userRepo = null
+        ?MatriculaRepository $matriculaRepo = null,
+        ?DatosPersonalesRepository $datosPersonalesRepo = null,
+        ?UserRepository $userRepo = null
     ) {
         $this->tramites = $tramites;
         $this->emails = $emails;

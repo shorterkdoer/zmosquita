@@ -17,9 +17,9 @@ class UserService
     protected MatriculaRepository $matriculaRepo;
 
     public function __construct(
-        UserRepository $userRepo = null,
-        DatosPersonalesRepository $datosPersonalesRepo = null,
-        MatriculaRepository $matriculaRepo = null
+        ?UserRepository $userRepo = null,
+        ?DatosPersonalesRepository $datosPersonalesRepo = null,
+        ?MatriculaRepository $matriculaRepo = null
     ) {
         $this->userRepo = $userRepo ?? new UserRepository();
         $this->datosPersonalesRepo = $datosPersonalesRepo ?? new DatosPersonalesRepository();

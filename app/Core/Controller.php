@@ -11,19 +11,24 @@ use App\Core\Helpers\Sanitizer;
 
 class Controller
 {
-    protected Engine $viewEngine;
+    protected ?Engine $viewEngine = null;
     protected string $pendingquery = '';
     protected string $pendingcolumns = '';
 
 
     public function __construct()
     {
-        $this->viewEngine = new Engine($_SESSION['directoriobase']. '/views');
+        if (isset($_SESSION['directoriobase'])) {
+            $this->viewEngine = new Engine($_SESSION['directoriobase']. '/views');
+        }
         //$this->viewEngine = new Engine($_SESSION['directoriobase'].'/templates');
     }
 
     protected function view(string $template, array $data = []): void
     {
+        if ($this->viewEngine === null) {
+            $this->viewEngine = new Engine($_SESSION['directoriobase'] . '/views');
+        }
         echo $this->viewEngine->render($template, $data);
         exit;
     }
@@ -49,7 +54,7 @@ class Controller
         $folderName = md5($userId . $secretword);
         $fullPath = $baseFolder . $folderName . DIRECTORY_SEPARATOR;
         //echo $fullPath;
-        
+
         if (!file_exists($fullPath)) {
             //echo "Creando carpeta: $fullPath\n";
             $oldUmask = umask(0); // Desactiva la umask momentáneamente
@@ -71,12 +76,12 @@ class Controller
         $folderName = md5($userId . $secretword);
         $fullPath = $baseFolder . $folderName . DIRECTORY_SEPARATOR;
         //echo $fullPath;
-        
+
         return $fullPath;
     }
     protected function jscolumns(array $campos): string
     {
-    
+
     /*
         columns: [
       { data: 'id', title: 'ID' },
@@ -87,11 +92,11 @@ class Controller
       { data: 'tramite_id', title: 'Trámite' }
     ]
     */
-    
+
         $jscolumns = "columns: [";
         foreach ($campos as $campo) {
             $jscolumns .= "{ data: '" . trim($campo['nombre']) . "', title: '" . trim($campo['label']) . "' },";
-        }            
+        }
         $jscolumns = rtrim($jscolumns, ',') . "],";
 
         return $jscolumns;
@@ -218,13 +223,13 @@ public function getCampo(string $zstring) {
             $columns[] = '{ data: "'. $key .'"' . ', title:'. '"' .$label . '"' .' }';
         }
     }
-    
+
     // Acciones como botones (si hay)
     foreach ($acciones as $key => $accion) {
         $label = addslashes($accion['text']);
         $columns[] = '{ data: '.'"'. $key .'"'.', title: '.'"'. $label . '"'.' }';
     }
-        
+
     //return json_encode(implode(",\n", $columns));
     return json_encode(implode(", ", $columns));
 }*/
@@ -278,7 +283,7 @@ public static function calcJSColumns(array $fields, array $acciones): array
     foreach ($fields as $key => $field) {
         if (empty($field['hidden'])) {
             $cols[] = "{ data: '$key', name: '$key', searchable: " .
-                 (!empty($field['searchable']) ? 'true' : 'false') . ", orderable: " . 
+                 (!empty($field['searchable']) ? 'true' : 'false') . ", orderable: " .
                  (!empty($field['orderable']) ? 'true' : 'false') . " }";
         }
     }
@@ -321,20 +326,20 @@ public static function calcJSColumns(array $fields, array $acciones): array
 
         return new PDO($dsn, $username, $password, $options);
     }
-    protected static function makeform(string $configfile, int $id = 0, array $datos = []) 
+    protected static function makeform(string $configfile, int $id = 0, array $datos = [])
     {
 
     if (!file_exists($configfile)) {
             die("Archivo de configuración no encontrado: $configfile");
     }
-    $cfgedit     = require $configfile; 
+    $cfgedit     = require $configfile;
     $cfg         = $cfgedit['config']    ?? [];
 
     foreach ($cfg['campos'] as $campo => &$atributos) {
         if (($atributos['type'] ?? '') === 'select' &&
             empty($atributos['options']))
             if (isset($atributos['tabla_rel'])) {
-                if (!empty($atributos['tabla_rel'])) 
+                if (!empty($atributos['tabla_rel']))
                     {
                     $tabla = $atributos['tabla_rel'];
                     // Se asume que la columna de visualización es 'nombre', pero se puede mejorar
@@ -346,9 +351,9 @@ public static function calcJSColumns(array $fields, array $acciones): array
 
                     $atributos['options'] = $options;
                     }
-                }   
-            } 
-        $cfgedit     = require $configfile; 
+                }
+            }
+        $cfgedit     = require $configfile;
         $cfg         = $cfgedit['config']    ?? [];
         $cfg['url_action'] .= '/' . $id; // <— se agrega el id a la url
         $campos      = $cfgedit['campos']    ?? [];
