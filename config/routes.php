@@ -30,34 +30,54 @@ $_SESSION['previous_url'] = $_SERVER['REQUEST_URI'];
 
 // include_once "adminmenuland.php";
 
-Router::get('/dashboard', [DashboardController::class, 'index']);
+// ============================================================================
+// AUTHENTICATION & DASHBOARD ROUTES
+// ============================================================================
+
+// Main dashboard route - unified for all roles
+Router::get('/dashboard', [DashboardController::class, 'index'], [AuthMiddleware::class]);
+
+// Login routes (guest only - redirects authenticated users to dashboard)
 Router::get('/login', [AuthController::class, 'loginForm'], [GuestMiddleware::class]);
-// Ruta para procesar el login (POST)
 Router::post('/login', [AuthController::class, 'logged'], [GuestMiddleware::class]);
+
+// Logout (any authenticated user)
 Router::get('/logout', [AuthController::class, 'logout']);
-Router::get('/', [HomeController::class, 'welcome']);
-Router::get('/register', [AuthController::class, 'registerForm']);
-Router::post('/register', [AuthController::class, 'register']);
+
+// Registration routes (guest only)
+Router::get('/register', [AuthController::class, 'registerForm'], [GuestMiddleware::class]);
+Router::post('/register', [AuthController::class, 'register'], [GuestMiddleware::class]);
+
+// Account activation
 Router::get('/activate/{token}', [AuthController::class, 'activateAccount']);
+
+// Password reset routes
+Router::get('/password/forgot', [AuthController::class, 'forgotForm'], [GuestMiddleware::class]);
+Router::post('/password/forgot', [AuthController::class, 'sendForgotPassword'], [GuestMiddleware::class]);
+Router::get('/password/reset/([A-Za-z0-9]+)', [AuthController::class, 'resetPasswordForm'], [GuestMiddleware::class]);
+Router::post('/password/reset', [AuthController::class, 'resetPassword'], [GuestMiddleware::class]);
+
+// Public pages
+Router::get('/', [HomeController::class, 'welcome']);
 Router::get('/requisitos', [AuthController::class, 'requisitos']);
 Router::get('/institucional', [AuthController::class, 'institucional']);
 
-//Router::get('/micredencial', [DatosPersonalesController::class, 'emitircredencial'], [AuthMiddleware::class]);
+// ============================================================================
+// LEGACY DASHBOARD ROUTES (maintained for backward compatibility)
+// ============================================================================
+// These routes redirect to the unified /dashboard route
+
+Router::get('/admin-dashboard', [DashboardController::class, 'adminDashboard'], [AdminMiddleware::class]);
+Router::get('/user-dashboard', [DashboardController::class, 'userDashboard'], [AuthMiddleware::class]);
+
+// ============================================================================
+// MATRICULA & USER ROUTES
+// ============================================================================
+
 Router::get('/micredencial', [MatriculaController::class, 'formcarnet'], [AuthMiddleware::class]);
 Router::get('/credencial/{id}', [DatosPersonalesController::class, 'showcredencial']);
 Router::get('/carnet/{id}', [DatosPersonalesController::class, 'showcarnet']);
 Router::get('/crearcarnet/{id}', [DatosPersonalesController::class, 'generarcredenciales'], [AuthMiddleware::class]);
-
-
-Router::get('/valores', [ConfigController::class, 'consultar'], [AdminMiddleware::class]);
-Router::get('/soporte', [ConfigController::class, 'soportesistema']);
-
-
-//admin menu
-Router::get('/admin-dashboard', [AuthController::class, 'showAdminDashboard'], [AdminMiddleware::class]);
-
-//user menu
-Router::get('/user-dashboard', [AuthController::class, 'showUserDashboard']);
 
 Router::get('/controlinscripciones', [AuthController::class, 'showMenuCtrlMatric'], [AdminMiddleware::class]);
 Router::get('/controldocumentacion', [AuthController::class, 'showMenuCtrlDocu'], [AdminMiddleware::class]);

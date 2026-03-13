@@ -81,12 +81,8 @@ class AuthController extends Controller
             return;
         }
 
-        // Redirect based on role
-        $redirectUrl = $result['user']['role'] === 'admin'
-            ? '/admin-dashboard'
-            : '/user-dashboard';
-
-        Response::redirect($redirectUrl);
+        // Redirect to unified dashboard (role-based rendering happens there)
+        Response::redirect('/dashboard');
     }
 
     /**

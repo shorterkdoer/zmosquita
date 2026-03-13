@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Repositories\UserRepository;
 use App\Repositories\DatosPersonalesRepository;
 use App\Repositories\MatriculaRepository;
@@ -11,6 +12,7 @@ use Foundation\Core\CSRF;
  * AuthService - Handles authentication business logic
  *
  * Refactored to use Repository Pattern for data access
+ * Uses UserRole enum for type-safe role handling
  */
 class AuthService
 {
@@ -58,6 +60,12 @@ class AuthService
             ];
         }
 
+        // Validate and normalize role
+        $userRole = $user['role'] ?? 'user';
+        if (!UserRole::isValid($userRole)) {
+            $userRole = UserRole::USER->value;
+        }
+
         // Regenerate session to prevent session fixation
         Session::regenerate();
         CSRF::regenerate();
@@ -66,7 +74,7 @@ class AuthService
         $sessionUser = [
             'id' => $user['id'],
             'email' => $user['email'],
-            'role' => $user['role']
+            'role' => $userRole
         ];
 
         Session::set('user', $sessionUser);
@@ -100,13 +108,13 @@ class AuthService
         $token = bin2hex(random_bytes(16));
         $hash = password_hash($password, PASSWORD_DEFAULT);
 
-        // Create user
+        // Create user with default role
         $userId = $this->userRepo->create([
             'email' => $email,
             'password' => $hash,
             'activation_token' => $token,
             'active' => 0,
-            'role' => 'user',
+            'role' => UserRole::USER->value,
             'created_at' => date('Y-m-d H:i:s')
         ]);
 
@@ -271,9 +279,21 @@ class AuthService
     }
 
     /**
-     * Get current user's role
+     * Get current user's role as UserRole enum
      */
-    public function getCurrentRole(): ?string
+    public function getCurrentRole(): ?UserRole
+    {
+        $roleString = Session::getRole();
+        if (!$roleString || !UserRole::isValid($roleString)) {
+            return null;
+        }
+        return UserRole::from($roleString);
+    }
+
+    /**
+     * Get current user's role as string
+     */
+    public function getCurrentRoleString(): ?string
     {
         return Session::getRole();
     }
@@ -283,7 +303,44 @@ class AuthService
      */
     public function hasRole(string $role): bool
     {
-        return Session::hasRole($role);
+        $currentRole = $this->getCurrentRole();
+        if (!$currentRole) {
+            return false;
+        }
+
+        if (!UserRole::isValid($role)) {
+            return false;
+        }
+
+        $targetRole = UserRole::from($role);
+        return $currentRole === $targetRole;
+    }
+
+    /**
+     * Check if current user has admin privileges (admin or superuser)
+     */
+    public function hasAdminPrivileges(): bool
+    {
+        $currentRole = $this->getCurrentRole();
+        return $currentRole && $currentRole->isAdmin();
+    }
+
+    /**
+     * Check if current user is a superuser
+     */
+    public function isSuperuser(): bool
+    {
+        $currentRole = $this->getCurrentRole();
+        return $currentRole && $currentRole->isSuperuser();
+    }
+
+    /**
+     * Check if current user is a regular user
+     */
+    public function isRegularUser(): bool
+    {
+        $currentRole = $this->getCurrentRole();
+        return $currentRole && $currentRole->isUser();
     }
 
     /**

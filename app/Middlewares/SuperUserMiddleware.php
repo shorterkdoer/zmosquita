@@ -5,24 +5,23 @@ namespace App\Middlewares;
 use App\Enums\UserRole;
 use Foundation\Core\Session;
 use Foundation\Middleware\BaseMiddleware;
-use Foundation\Core\Response;
 
 /**
- * AdminMiddleware
+ * SuperUserMiddleware
  *
  * Authorization middleware that checks if the authenticated user
- * has administrative privileges (admin or superuser).
+ * has superuser privileges. Only superuser role can pass.
  */
-class AdminMiddleware extends BaseMiddleware
+class SuperUserMiddleware extends BaseMiddleware
 {
     /**
      * Handle the middleware check
      *
      * Verifies that:
      * 1. User is authenticated
-     * 2. User has admin or superuser role
+     * 2. User has superuser role
      *
-     * Returns 401 if not authenticated, 403 if not admin/superuser.
+     * Returns 401 if not authenticated, 403 if not superuser.
      */
     public function handle(): void
     {
@@ -51,14 +50,16 @@ class AdminMiddleware extends BaseMiddleware
             ? UserRole::from($roleString)
             : UserRole::GUEST;
 
-        // Check if user has admin privileges (admin or superuser)
-        if (!$role->isAdmin()) {
+        // Check if user is superuser
+        if (!$role->isSuperuser()) {
             http_response_code(403);
-            echo '<div class="alert alert-warning m-3">
-                <h4><i class="bi bi-exclamation-triangle"></i> Acceso Restringido</h4>
-                <p>Esta sección requiere permisos de administrador.</p>
+            echo '<div class="alert alert-danger m-3">
+                <h4><i class="bi bi-shield-lock"></i> Acceso Restringido</h4>
+                <p>Esta sección está disponible solo para superusuarios.</p>
                 <p>Tu rol actual: <strong>' . htmlspecialchars($role->getLabel()) . '</strong></p>
-                <a href="/dashboard" class="btn btn-primary">Volver al Dashboard</a>
+                <hr>
+                <p class="mb-0">Si necesitas acceso a esta función, contacta a un superusuario del sistema.</p>
+                <a href="/dashboard" class="btn btn-primary mt-3">Volver al Dashboard</a>
             </div>';
             exit;
         }

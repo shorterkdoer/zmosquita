@@ -1,45 +1,51 @@
 <?php
 namespace App\Middlewares;
 
+use App\Enums\UserRole;
 use Foundation\Core\Response;
 use Foundation\Core\Request;
 use Foundation\Core\Session;
 use Foundation\Middleware\BaseMiddleware;
 use App\Models\User;
 
+/**
+ * AuthMiddleware
+ *
+ * Authentication middleware that checks if a user is logged in.
+ * Allows any authenticated role (user, admin, superuser) to pass.
+ */
 class AuthMiddleware extends BaseMiddleware
 {
     /**
      * Handle the middleware check
+     *
+     * Verifies that a user is authenticated. Any valid authenticated user
+     * (user, admin, or superuser) can pass through this middleware.
      */
     public function handle(): void
     {
-        // Ejemplo sencillo: Si no hay user_id en la sesión, redirigimos al login
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        // Ensure session is started
+        Session::start();
 
-        if (!isset($_SESSION['user']['id'])) {
+        // Check if user is authenticated
+        if (!Session::isAuthenticated()) {
             Response::redirect('/login');
         }
-        /*
-        if (($_SESSION['user']['role']) == 'admin') {
-            Response::redirect('/admin-dashboard');
-        }
-        if (($_SESSION['user']['role']) == 'user') {
-            Response::redirect('/user-dashboard');
-        }
-            */
     }
 
+    /**
+     * Handle login request
+     *
+     * Authenticates user credentials and creates session.
+     * Redirects to dashboard based on user role.
+     */
     public function login(Request $request): void
     {
-        // Extraer credenciales del formulario
+        // Extract credentials from form
         $email = trim($request->input('email'));
         $password = trim($request->input('password'));
 
-        // Usar el método estático findByEmail ya que está definido como static
-
+        // Find user by email
         $user = User::findByEmail($email);
 
         if (!$user || !password_verify($password, $user['password'])) {
@@ -47,28 +53,34 @@ class AuthMiddleware extends BaseMiddleware
             Response::redirect('/login');
         }
 
-        // Iniciar sesión y almacenar los datos del usuario
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
+        // Validate role
+        $userRole = $user['role'] ?? 'guest';
+        if (!UserRole::isValid($userRole)) {
+            Session::flash('error', 'Rol de usuario inválido.');
+            Response::redirect('/login');
         }
 
-        // Guardar en sesión un array con los datos del usuario
+        // Ensure session is started
+        Session::start();
+
+        // Regenerate session for security
+        Session::regenerate();
+
+        // Store user data in session
         $_SESSION['user'] = [
-            'id'    => $user['id'],
+            'id' => $user['id'],
             'email' => $user['email'],
-            'role'  => $user['role']
+            'role' => $userRole
         ];
 
-        // Redireccionar según el rol del usuario
-        if ($user['role'] === 'admin') {
-            Response::redirect('/admin-dashboard');
-        } else {
-            Response::redirect('/user-dashboard');
-        }
+        // Redirect to unified dashboard (role-based rendering happens there)
+        Response::redirect('/dashboard');
     }
 
     /**
-     * Muestra el formulario de login
+     * Display login form
+     *
+     * Shows the login page for unauthenticated users.
      */
     public function loginForm(Request $request): void
     {
