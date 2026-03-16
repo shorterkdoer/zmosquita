@@ -114,7 +114,18 @@ Router::get('/comision/borrar/{id}', [ComisionController::class, 'borrar']);
 
 
 
-// Rutas para Provincias
+// Rutas para Provincia
+
+// Rutas para Cargo
+
+Router::get('/cargos', [CargoController::class, 'index'], [AdminMiddleware::class]);
+Router::get('/cargos/edit/{id}', [CargoController::class, 'edit'], [AdminMiddleware::class]);
+Router::get('/cargos/create', [CargoController::class, 'create'], [AdminMiddleware::class]);
+Router::post('/cargos/store', [CargoController::class, 'store'], [AdminMiddleware::class]);
+Router::post('/cargos/update/{id}', [CargoController::class, 'update'], [AdminMiddleware::class]);
+Router::get('/cargos/vista/{id}', [CargoController::class, 'vista'], [AdminMiddleware::class]);
+Router::post('/cargos/delete/{id}', [CargoController::class, 'delete'], [AdminMiddleware::class]);
+
 
 Router::get('/provincias', [ProvinciaController::class, 'index'], [AdminMiddleware::class]);
 Router::get('/provincias/edit/{id}', [ProvinciaController::class, 'edit'], [AdminMiddleware::class]);
@@ -123,6 +134,16 @@ Router::post('/provincias/store', [ProvinciaController::class, 'store'], [AdminM
 Router::post('/provincias/update/{id}', [ProvinciaController::class, 'update'], [AdminMiddleware::class]);
 Router::get('/provincias/vista/{id}', [ProvinciaController::class, 'vista'], [AdminMiddleware::class]);
 Router::post('/provincias/delete/{id}', [ProvinciaController::class, 'delete'], [AdminMiddleware::class]);
+
+// Rutas para Departamento
+
+Router::get('/departamentos', [DepartamentoController::class, 'index'], [AdminMiddleware::class]);
+Router::get('/departamentos/edit/{id}', [DepartamentoController::class, 'edit'], [AdminMiddleware::class]);
+Router::get('/departamentos/create', [DepartamentoController::class, 'create'], [AdminMiddleware::class]);
+Router::post('/departamentos/store', [DepartamentoController::class, 'store'], [AdminMiddleware::class]);
+Router::post('/departamentos/update/{id}', [DepartamentoController::class, 'update'], [AdminMiddleware::class]);
+Router::get('/departamentos/vista/{id}', [DepartamentoController::class, 'vista'], [AdminMiddleware::class]);
+Router::post('/departamentos/delete/{id}', [DepartamentoController::class, 'delete'], [AdminMiddleware::class]);
 
 
 // Rutas para Ciudades

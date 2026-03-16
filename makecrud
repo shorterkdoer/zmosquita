@@ -1,0 +1,1273 @@
+#!/usr/bin/env php
+<?php
+/**
+ * makecrud - Generador de CRUD para el framework
+ *
+ * Uso: php makecrud <nombre_archivo_sql>
+ *       php makecrud --list
+ *       php makecrud --help
+ *
+ * El archivo SQL debe estar en /config/datadef/ y contener un CREATE TABLE
+ */
+
+// Configuración de paths
+define('BASE_DIR', __DIR__);
+define('DATADEF_DIR', BASE_DIR . '/config/datadef');
+define('MODELS_DIR', BASE_DIR . '/app/Models');
+define('CONTROLLERS_DIR', BASE_DIR . '/app/Controllers');
+define('REPOSITORIES_DIR', BASE_DIR . '/app/Repositories');
+define('SERVICES_DIR', BASE_DIR . '/app/Services');
+define('CRUDS_DIR', BASE_DIR . '/config/cruds');
+define('ROUTES_FILE', BASE_DIR . '/config/routes.php');
+
+// Colores para terminal
+define('COLOR_GREEN', "\033[32m");
+define('COLOR_RED', "\033[31m");
+define('COLOR_YELLOW', "\033[33m");
+define('COLOR_BLUE', "\033[34m");
+define('COLOR_CYAN', "\033[36m");
+define('COLOR_RESET', "\033[0m");
+
+/**
+ * Clase principal del generador de CRUD
+ */
+class CrudGenerator
+{
+    private string $tableName;
+    private string $modelName;
+    private string $controllerName;
+    private string $entityName; // nombre en minúsculas para URLs y configs
+    private array $columns = [];
+    private string $primaryKey = 'id';
+    private array $foreignKeys = [];
+
+    /**
+     * Punto de entrada principal
+     */
+    public function run(array $argv): void
+    {
+        if (count($argv) < 2) {
+            $this->showHelp();
+            exit(1);
+        }
+
+        $command = $argv[1];
+
+        switch ($command) {
+            case '--help':
+            case '-h':
+                $this->showHelp();
+                break;
+
+            case '--list':
+            case '-l':
+                $this->listSqlFiles();
+                break;
+
+            default:
+                $this->generateCrud($command);
+                break;
+        }
+    }
+
+    /**
+     * Muestra la ayuda
+     */
+    private function showHelp(): void
+    {
+        echo COLOR_CYAN . "
+╔═══════════════════════════════════════════════════════════════╗
+║                     MAKECRUD GENERATOR                         ║
+║              Generador de CRUDs desde SQL                      ║
+╚═══════════════════════════════════════════════════════════════╝
+" . COLOR_RESET . "
+
+Uso:
+  php makecrud <nombre_archivo>      Genera CRUD desde archivo SQL
+  php makecrud --list                Lista archivos SQL disponibles
+  php makecrud --help                Muestra esta ayuda
+
+El archivo SQL debe estar en /config/datadef/ y contener un CREATE TABLE.
+
+Archivos generados:
+  📁 app/Models/{Model}.php
+  📁 app/Repositories/{Model}Repository.php
+  📁 app/Services/{Model}Service.php
+  📁 app/Controllers/{Model}Controller.php
+  📁 config/cruds/{entidad}/{entidad}_*.php
+  📝 Rutas agregadas a config/routes.php
+
+Ejemplo:
+  php makecrud cargos.sql
+  php makecrud cargos
+
+";
+    }
+
+    /**
+     * Lista los archivos SQL disponibles
+     */
+    private function listSqlFiles(): void
+    {
+        echo COLOR_CYAN . "\n📂 Archivos SQL disponibles en /config/datadef/:\n" . COLOR_RESET . "\n";
+
+        $files = glob(DATADEF_DIR . '/*.sql');
+
+        if (empty($files)) {
+            echo COLOR_YELLOW . "  No se encontraron archivos SQL.\n" . COLOR_RESET;
+            return;
+        }
+
+        foreach ($files as $file) {
+            $filename = basename($file);
+            $size = filesize($file);
+            echo COLOR_GREEN . "  • {$filename}" . COLOR_RESET . " (" . $this->formatBytes($size) . ")\n";
+
+            // Mostrar información del archivo
+            $content = file_get_contents($file);
+            if (preg_match('/CREATE\s+TABLE\s+`?(\w+)`?/i', $content, $matches)) {
+                echo "    Tabla: " . COLOR_CYAN . $matches[1] . COLOR_RESET . "\n";
+            }
+            echo "\n";
+        }
+    }
+
+    /**
+     * Formatea bytes a KB/MB
+     */
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        }
+        if ($bytes < 1048576) {
+            return round($bytes / 1024, 2) . ' KB';
+        }
+        return round($bytes / 1048576, 2) . ' MB';
+    }
+
+    /**
+     * Genera el CRUD completo
+     */
+    private function generateCrud(string $filename): void
+    {
+        // Normalizar nombre de archivo
+        $filename = basename($filename);
+        if (!str_ends_with($filename, '.sql')) {
+            $filename .= '.sql';
+        }
+
+        $filepath = DATADEF_DIR . '/' . $filename;
+
+        if (!file_exists($filepath)) {
+            $this->error("El archivo '{$filename}' no existe en /config/datadef/");
+            echo "Usa " . COLOR_CYAN . "php makecrud --list" . COLOR_RESET . " para ver archivos disponibles.\n";
+            exit(1);
+        }
+
+        echo COLOR_CYAN . "\n🔧 Analizando archivo SQL: {$filename}\n" . COLOR_RESET;
+
+        // Parsear el archivo SQL
+        $this->parseSqlFile($filepath);
+
+        // Mostrar resumen
+        $this->showSummary();
+
+        // Confirmar
+        if (!$this->confirm()) {
+            echo COLOR_YELLOW . "❌ Operación cancelada.\n" . COLOR_RESET;
+            exit(0);
+        }
+
+        // Generar archivos
+        echo "\n" . COLOR_CYAN . "🚀 Generando archivos...\n" . COLOR_RESET;
+
+        $this->createModel();
+        $this->createRepository();
+        $this->createService();
+        $this->createController();
+        $this->createCrudConfigs();
+        $this->addRoutes();
+
+        echo "\n" . COLOR_GREEN . "✅ CRUD generado exitosamente!\n" . COLOR_RESET;
+        echo COLOR_CYAN . "\n📝 Resumen de archivos creados:\n" . COLOR_RESET;
+        $this->showFilesCreated();
+    }
+
+    /**
+     * Parsea el archivo SQL y extrae información de la tabla
+     */
+    private function parseSqlFile(string $filepath): void
+    {
+        $content = file_get_contents($filepath);
+
+        // Extraer nombre de la tabla
+        if (!preg_match('/CREATE\s+TABLE\s+`?(\w+)`?\s*\(/i', $content, $matches)) {
+            $this->error("No se encontró un CREATE TABLE válido en el archivo.");
+            exit(1);
+        }
+
+        $this->tableName = $matches[1];
+        $this->modelName = $this->singularize(ucfirst($this->tableName));
+        $this->controllerName = $this->modelName . 'Controller';
+        $this->entityName = strtolower($this->tableName);
+
+        // Extraer columnas
+        if (!preg_match('/CREATE\s+TABLE\s+`?\w+`?\s*\((.*?)\)\s*ENGINE/is', $content, $matches)) {
+            $this->error("No se pudo parsear la definición de columnas.");
+            exit(1);
+        }
+
+        $columnsDef = $matches[1];
+        $lines = explode("\n", $columnsDef);
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line) || str_starts_with($line, 'PRIMARY') || str_starts_with($line, 'UNIQUE') ||
+                str_starts_with($line, 'KEY') || str_starts_with($line, 'CONSTRAINT') ||
+                str_starts_with($line, 'FOREIGN')) {
+                continue;
+            }
+
+            // Extraer nombre y tipo de columna
+            if (preg_match('/`?(\w+)`?\s+(\w+)(?:\(([^)]+)\))?(.*)$/i', $line, $colMatch)) {
+                $columnName = $colMatch[1];
+                $columnType = strtolower($colMatch[2]);
+                $columnLength = $colMatch[3] ?? null;
+                $columnAttrs = strtoupper($colMatch[4] ?? '');
+
+                $this->columns[$columnName] = [
+                    'name' => $columnName,
+                    'type' => $columnType,
+                    'length' => $columnLength,
+                    'nullable' => str_contains($columnAttrs, 'NULL'),
+                    'auto_increment' => str_contains($columnAttrs, 'AUTO_INCREMENT'),
+                    'default' => null,
+                ];
+
+                // Detectar primary key
+                if ($columnName === 'id' || str_contains($columnAttrs, 'PRIMARY KEY')) {
+                    $this->primaryKey = $columnName;
+                }
+
+                // Detectar foreign keys por convención (nombre_id)
+                if (str_ends_with($columnName, '_id') && $columnName !== 'id') {
+                    $relatedTable = $this->singularize(substr($columnName, 0, -3));
+                    $this->foreignKeys[$columnName] = $relatedTable;
+                }
+            }
+        }
+
+        // Buscar primary key en CONSTRAINT si no se encontró
+        if ($this->primaryKey === 'id' && !isset($this->columns['id'])) {
+            if (preg_match('/PRIMARY\s+KEY\s+\(`?(\w+)`?\)/i', $content, $matches)) {
+                $this->primaryKey = $matches[1];
+            }
+        }
+
+        if (empty($this->columns)) {
+            $this->error("No se encontraron columnas válidas.");
+            exit(1);
+        }
+    }
+
+    /**
+     * Convierte plural a singular (simplificado)
+     */
+    private function singularize(string $word): string
+    {
+        // Reglas básicas de plural a singular en español
+        $suffixes = [
+            'es' => '',
+            's' => '',
+        ];
+
+        foreach ($suffixes as $suffix => $replacement) {
+            if (str_ends_with($word, $suffix) && strlen($word) > 2) {
+                return substr($word, 0, -strlen($suffix)) . $replacement;
+            }
+        }
+
+        return $word;
+    }
+
+    /**
+     * Muestra resumen de lo que se va a generar
+     */
+    private function showSummary(): void
+    {
+        echo "\n";
+        echo COLOR_YELLOW . "  Tabla:       " . COLOR_RESET . "{$this->tableName}\n";
+        echo COLOR_YELLOW . "  Modelo:      " . COLOR_RESET . "{$this->modelName}\n";
+        echo COLOR_YELLOW . "  Controlador: " . COLOR_RESET . "{$this->controllerName}\n";
+        echo COLOR_YELLOW . "  Entidad:     " . COLOR_RESET . "{$this->entityName}\n";
+        echo COLOR_YELLOW . "  Primary Key: " . COLOR_RESET . "{$this->primaryKey}\n";
+        echo COLOR_YELLOW . "  Columnas:    " . COLOR_RESET . count($this->columns) . "\n";
+
+        if (!empty($this->foreignKeys)) {
+            echo COLOR_YELLOW . "  FKs detectados: " . COLOR_RESET . implode(', ', array_keys($this->foreignKeys)) . "\n";
+        }
+        echo "\n";
+
+        echo COLOR_CYAN . "  Columnas detectadas:\n" . COLOR_RESET;
+        foreach ($this->columns as $col) {
+            $required = !$col['nullable'] && !$col['auto_increment'] ? ' ✗' : ' ✓';
+            echo "    {$col['name']}: {$col['type']}" .
+                 ($col['length'] ? "({$col['length']})" : "") .
+                 COLOR_YELLOW . $required . COLOR_RESET .
+                 ($col['auto_increment'] ? ' [AI]' : '') . "\n";
+        }
+    }
+
+    /**
+     * Pide confirmación al usuario
+     */
+    private function confirm(): bool
+    {
+        echo COLOR_CYAN . "¿Continuar con la generación? " . COLOR_RESET .
+             COLOR_GREEN . "[s/N]" . COLOR_RESET . ": ";
+        $handle = fopen("php://stdin", "r");
+        $line = fgets($handle);
+        fclose($handle);
+        return strtolower(trim($line)) === 's';
+    }
+
+    /**
+     * Crea el Model
+     */
+    private function createModel(): void
+    {
+        $content = "<?php\n\nnamespace App\\Models;\n\nuse App\\Core\\Model;\n\nclass {$this->modelName} extends Model\n{\n";
+        $content .= "    protected static string \$table = '{$this->tableName}';\n";
+        $content .= "    protected static string \$primaryKey = '{$this->primaryKey}';\n\n";
+
+        // Método findById si no es id estándar
+        if ($this->primaryKey !== 'id') {
+            $content .= "    public static function findById(int \$id): ?array\n";
+            $content .= "    {\n";
+            $content .= "        \$db = self::getDB();\n";
+            $content .= "        \$stmt = \$db->prepare(\"SELECT * FROM \" . static::\$table . \" WHERE {$this->primaryKey} = ?\");\n";
+            $content .= "        \$stmt->execute([\$id]);\n";
+            $content .= "        \$result = \$stmt->fetch();\n";
+            $content .= "        return \$result ?: null;\n";
+            $content .= "    }\n\n";
+        }
+
+        // Métodos para relaciones (foreign keys)
+        foreach ($this->foreignKeys as $fk => $relatedTable) {
+            $relatedModel = ucfirst($this->singularize($relatedTable));
+            $content .= "    public function get" . ucfirst($relatedTable) . "(): ?array\n";
+            $content .= "    {\n";
+            $content .= "        if (empty(\$this['{$fk}'])) {\n";
+            $content .= "            return null;\n";
+            $content .= "        }\n";
+            $content .= "        return {$relatedModel}::find(\$this['{$fk}']);\n";
+            $content .= "    }\n\n";
+        }
+
+        $content .= "}\n";
+
+        $this->writeFile(MODELS_DIR . "/{$this->modelName}.php", $content, "Model");
+    }
+
+    /**
+     * Crea el Repository
+     */
+    private function createRepository(): void
+    {
+        $content = "<?php\n\nnamespace App\\Repositories;\n\nuse App\\Repositories\\BaseRepository;\n\nclass {$this->modelName}Repository extends BaseRepository\n{\n";
+        $content .= "    protected string \$table = '{$this->tableName}';\n";
+        $content .= "    protected string \$primaryKey = '{$this->primaryKey}';\n\n";
+
+        // Métodos personalizados para foreign keys
+        foreach ($this->foreignKeys as $fk => $relatedTable) {
+            $method = 'findBy' . ucfirst(str_replace('_id', '', $fk));
+            $content .= "    public function {$method}(int \$id): array\n";
+            $content .= "    {\n";
+            $content .= "        return \$this->where('{$fk}', \$id);\n";
+            $content .= "    }\n\n";
+        }
+
+        $content .= "}\n";
+
+        $this->writeFile(REPOSITORIES_DIR . "/{$this->modelName}Repository.php", $content, "Repository");
+    }
+
+    /**
+     * Crea el Service
+     */
+    private function createService(): void
+    {
+        $content = "<?php\n\nnamespace App\\Services;\n\nuse App\\Repositories\\{$this->modelName}Repository;\n\nclass {$this->modelName}Service\n{\n";
+        $content .= "    private {$this->modelName}Repository \$repository;\n\n";
+        $content .= "    public function __construct()\n";
+        $content .= "    {\n";
+        $content .= "        \$this->repository = new {$this->modelName}Repository();\n";
+        $content .= "    }\n\n";
+
+        // Métodos CRUD
+        $content .= "    public function getAll(): array\n";
+        $content .= "    {\n";
+        $content .= "        return \$this->repository->all();\n";
+        $content .= "    }\n\n";
+
+        $content .= "    public function findById(int \$id): ?array\n";
+        $content .= "    {\n";
+        $content .= "        return \$this->repository->find(\$id);\n";
+        $content .= "    }\n\n";
+
+        $content .= "    public function create(array \$data): int\n";
+        $content .= "    {\n";
+        $content .= "        // Validaciones\n";
+        $content .= "        \$this->validateData(\$data);\n\n";
+        $content .= "        return \$this->repository->create(\$data);\n";
+        $content .= "    }\n\n";
+
+        $content .= "    public function update(int \$id, array \$data): bool\n";
+        $content .= "    {\n";
+        $content .= "        // Validaciones\n";
+        $content .= "        \$this->validateData(\$data, \$id);\n\n";
+        $content .= "        return \$this->repository->update(\$id, \$data);\n";
+        $content .= "    }\n\n";
+
+        $content .= "    public function delete(int \$id): bool\n";
+        $content .= "    {\n";
+        $content .= "        return \$this->repository->delete(\$id);\n";
+        $content .= "    }\n\n";
+
+        // Método de validación
+        $content .= "    private function validateData(array \$data, ?int \$excludeId = null): void\n";
+        $content .= "    {\n";
+        foreach ($this->columns as $col) {
+            if (!$col['nullable'] && !$col['auto_increment']) {
+                $content .= "        if (empty(\$data['{$col['name']}'])) {\n";
+                $content .= "            throw new \\InvalidArgumentException('El campo {$col['name']} es requerido');\n";
+                $content .= "        }\n";
+            }
+        }
+        $content .= "    }\n";
+
+        $content .= "}\n";
+
+        $this->writeFile(SERVICES_DIR . "/{$this->modelName}Service.php", $content, "Service");
+    }
+
+    /**
+     * Crea el Controller
+     */
+    private function createController(): void
+    {
+        $content = "<?php\n\nnamespace App\\Controllers;\n\nuse App\\Core\\Controller;\nuse Foundation\\Core\\Request;\nuse Foundation\\Core\\Session;\nuse App\\Models\\{$this->modelName};\nuse App\\Middlewares\\AdminMiddleware;\n\nclass {$this->controllerName} extends Controller\n{\n";
+
+        // Método index
+        $content .= $this->generateIndexMethod();
+
+        // Método create
+        $content .= $this->generateCreateMethod();
+
+        // Método store
+        $content .= $this->generateStoreMethod();
+
+        // Método edit
+        $content .= $this->generateEditMethod();
+
+        // Método update
+        $content .= $this->generateUpdateMethod();
+
+        // Método vista (confirmación de borrado)
+        $content .= $this->generateVistaMethod();
+
+        // Método delete
+        $content .= $this->generateDeleteMethod();
+
+        $content .= "}\n";
+
+        $this->writeFile(CONTROLLERS_DIR . "/{$this->controllerName}.php", $content, "Controller");
+    }
+
+    /**
+     * Genera el método index
+     */
+    private function generateIndexMethod(): string
+    {
+        $method = "    // Muestra la lista de {$this->entityName}\n";
+        $method .= "    public function index(Request \$request): void\n";
+        $method .= "    {\n";
+        $method .= "        \$cfgindex = require \$_SESSION['directoriobase'] . '/config/cruds/{$this->entityName}/{$this->entityName}_index.php';\n";
+        $method .= "        \$cfg = \$cfgindex['config'] ?? [];\n";
+        $method .= "        \$actividades = \$cfgindex['actividades'] ?? [];\n";
+        $method .= "        \$campos = \$cfgindex['campos'] ?? [];\n";
+        $method .= "        \$comandos = \$cfgindex['comandos'] ?? [];\n";
+        $method .= "        \$buttons = \$cfgindex['buttons'] ?? [];\n\n";
+        $method .= "        \$todos = {$this->modelName}::all();\n";
+        $method .= "        \$this->view('cruds/index', [\n";
+        $method .= "            'cfg' => \$cfg,\n";
+        $method .= "            'fields' => \$campos,\n";
+        $method .= "            'values' => \$todos,\n";
+        $method .= "            'actions' => \$actividades,\n";
+        $method .= "            'comandos' => \$comandos,\n";
+        $method .= "            'buttons' => \$buttons,\n";
+        $method .= "        ]);\n";
+        $method .= "    }\n\n";
+
+        return $method;
+    }
+
+    /**
+     * Genera el método create
+     */
+    private function generateCreateMethod(): string
+    {
+        $method = "    // Muestra el formulario para crear un nuevo registro\n";
+        $method .= "    public function create(Request \$request): void\n";
+        $method .= "    {\n";
+        $method .= "        \$cfgcreate = require \$_SESSION['directoriobase'] . '/config/cruds/{$this->entityName}/{$this->entityName}_create.php';\n";
+        $method .= "        \$cfg = \$cfgcreate['config'] ?? [];\n";
+        $method .= "        \$campos = \$cfgcreate['campos'] ?? [];\n";
+        $method .= "        \$actividades = \$cfgcreate['actividades'] ?? [];\n";
+        $method .= "        \$comandos = \$cfgcreate['comandos'] ?? [];\n";
+        $method .= "        \$buttons = \$cfgcreate['buttons'] ?? [];\n\n";
+        $method .= "        \$this->view('cruds/index', [\n";
+        $method .= "            'cfg' => \$cfg,\n";
+        $method .= "            'fields' => \$campos,\n";
+        $method .= "            'values' => [],\n";
+        $method .= "            'actions' => \$actividades,\n";
+        $method .= "            'comandos' => \$comandos,\n";
+        $method .= "            'buttons' => \$buttons,\n";
+        $method .= "        ]);\n";
+        $method .= "    }\n\n";
+
+        return $method;
+    }
+
+    /**
+     * Genera el método store
+     */
+    private function generateStoreMethod(): string
+    {
+        $method = "    // Procesa el formulario y guarda el nuevo registro\n";
+        $method .= "    public function store(Request \$request): void\n";
+        $method .= "    {\n";
+        $method .= "        \$data = [];\n\n";
+
+        // Procesar cada columna
+        foreach ($this->columns as $col) {
+            if ($col['auto_increment']) {
+                continue;
+            }
+            $method .= "        \$" . $col['name'] . " = trim(\$request->input('{$col['name']}'));\n";
+
+            if (!$col['nullable']) {
+                $method .= "        if (empty(\${$col['name']})) {\n";
+                $method .= "            Session::flash('error', 'El campo {$col['name']} es obligatorio.');\n";
+                $method .= "            \$this->redirect('/{$this->entityName}/create');\n";
+                $method .= "            return;\n";
+                $method .= "        }\n\n";
+            }
+            $method .= "        \$data['{$col['name']}'] = \${$col['name']};\n\n";
+        }
+
+        $method .= "        {$this->modelName}::create(\$data);\n";
+        $method .= "        Session::flash('success', 'Registro creado correctamente.');\n";
+        $method .= "        \$this->redirect('/{$this->entityName}');\n";
+        $method .= "    }\n\n";
+
+        return $method;
+    }
+
+    /**
+     * Genera el método edit
+     */
+    private function generateEditMethod(): string
+    {
+        $method = "    public function edit(Request \$request, array \$params): void\n";
+        $method .= "    {\n";
+        $method .= "        \$id = \$params[0] ?? null;\n";
+        $method .= "        if (!\$id) {\n";
+        $method .= "            Session::flash('error', 'ID no especificado.');\n";
+        $method .= "            \$this->redirect('/{$this->entityName}');\n";
+        $method .= "            return;\n";
+        $method .= "        }\n\n";
+
+        $method .= "        \$data = {$this->modelName}::find(\$id);\n";
+        $method .= "        if (!\$data) {\n";
+        $method .= "            Session::flash('error', 'Registro no encontrado.');\n";
+        $method .= "            \$this->redirect('/{$this->entityName}');\n";
+        $method .= "            return;\n";
+        $method .= "        }\n\n";
+
+        $method .= "        \$cfgedit = require \$_SESSION['directoriobase'] . '/config/cruds/{$this->entityName}/{$this->entityName}_edit.php';\n";
+        $method .= "        \$cfg = \$cfgedit['config'] ?? [];\n";
+        $method .= "        \$cfg['url_action'] .= '/' . \$id;\n";
+        $method .= "        \$campos = \$cfgedit['campos'] ?? [];\n";
+        $method .= "        \$actividades = \$cfgedit['actividades'] ?? [];\n";
+        $method .= "        \$comandos = \$cfgedit['comandos'] ?? [];\n";
+        $method .= "        \$buttons = \$cfgedit['buttons'] ?? [];\n\n";
+
+        $method .= "        \$this->view('cruds/index', [\n";
+        $method .= "            'cfg' => \$cfg,\n";
+        $method .= "            'fields' => \$campos,\n";
+        $method .= "            'values' => \$data,\n";
+        $method .= "            'actions' => \$actividades,\n";
+        $method .= "            'comandos' => \$comandos,\n";
+        $method .= "            'buttons' => \$buttons,\n";
+        $method .= "        ]);\n";
+        $method .= "    }\n\n";
+
+        return $method;
+    }
+
+    /**
+     * Genera el método update
+     */
+    private function generateUpdateMethod(): string
+    {
+        $method = "    public function update(Request \$request, array \$params): void\n";
+        $method .= "    {\n";
+        $method .= "        \$id = \$params[0] ?? null;\n";
+        $method .= "        if (!\$id) {\n";
+        $method .= "            Session::flash('error', 'ID no especificado.');\n";
+        $method .= "            \$this->redirect('/{$this->entityName}');\n";
+        $method .= "            return;\n";
+        $method .= "        }\n\n";
+
+        $method .= "        \$data = [];\n\n";
+
+        // Procesar cada columna
+        foreach ($this->columns as $col) {
+            if ($col['auto_increment']) {
+                continue;
+            }
+            $method .= "        \$" . $col['name'] . " = trim(\$request->input('{$col['name']}'));\n\n";
+
+            if (!$col['nullable']) {
+                $method .= "        if (empty(\${$col['name']})) {\n";
+                $method .= "            Session::flash('error', 'El campo {$col['name']} es obligatorio.');\n";
+                $method .= "            \$this->redirect('/{$this->entityName}/edit/' . \$id);\n";
+                $method .= "            return;\n";
+                $method .= "        }\n\n";
+            }
+            $method .= "        \$data['{$col['name']}'] = \${$col['name']};\n\n";
+        }
+
+        $method .= "        if (!{$this->modelName}::find(\$id)) {\n";
+        $method .= "            Session::flash('error', 'Registro no encontrado.');\n";
+        $method .= "            \$this->redirect('/{$this->entityName}');\n";
+        $method .= "            return;\n";
+        $method .= "        }\n\n";
+
+        $method .= "        {$this->modelName}::update(\$id, \$data);\n";
+        $method .= "        Session::flash('success', 'Registro actualizado correctamente.');\n";
+        $method .= "        \$this->redirect('/{$this->entityName}');\n";
+        $method .= "    }\n\n";
+
+        return $method;
+    }
+
+    /**
+     * Genera el método vista (confirmación de borrado)
+     */
+    private function generateVistaMethod(): string
+    {
+        $method = "    public function vista(Request \$request, array \$params): void\n";
+        $method .= "    {\n";
+        $method .= "        \$id = \$params[0] ?? null;\n";
+        $method .= "        if (!\$id) {\n";
+        $method .= "            Session::flash('error', 'ID no especificado.');\n";
+        $method .= "            \$this->redirect('/{$this->entityName}');\n";
+        $method .= "            return;\n";
+        $method .= "        }\n\n";
+
+        $method .= "        \$data = {$this->modelName}::find(\$id);\n";
+        $method .= "        if (!\$data) {\n";
+        $method .= "            Session::flash('error', 'Registro no encontrado.');\n";
+        $method .= "            \$this->redirect('/{$this->entityName}');\n";
+        $method .= "            return;\n";
+        $method .= "        }\n\n";
+
+        $method .= "        \$cfgdelete = require \$_SESSION['directoriobase'] . '/config/cruds/{$this->entityName}/{$this->entityName}_delete.php';\n";
+        $method .= "        \$cfg = \$cfgdelete['config'] ?? [];\n";
+        $method .= "        \$cfg['url_action'] .= '/' . \$id;\n";
+        $method .= "        \$campos = \$cfgdelete['campos'] ?? [];\n";
+        $method .= "        \$actividades = \$cfgdelete['actividades'] ?? [];\n";
+        $method .= "        \$comandos = \$cfgdelete['comandos'] ?? [];\n";
+        $method .= "        \$buttons = \$cfgdelete['buttons'] ?? [];\n\n";
+
+        $method .= "        \$this->view('cruds/index', [\n";
+        $method .= "            'cfg' => \$cfg,\n";
+        $method .= "            'fields' => \$campos,\n";
+        $method .= "            'values' => \$data,\n";
+        $method .= "            'actions' => \$actividades,\n";
+        $method .= "            'comandos' => \$comandos,\n";
+        $method .= "            'buttons' => \$buttons,\n";
+        $method .= "        ]);\n";
+        $method .= "    }\n\n";
+
+        return $method;
+    }
+
+    /**
+     * Genera el método delete
+     */
+    private function generateDeleteMethod(): string
+    {
+        $method = "    public function delete(Request \$request, array \$params): void\n";
+        $method .= "    {\n";
+        $method .= "        \$id = \$params[0] ?? null;\n";
+        $method .= "        if (!\$id) {\n";
+        $method .= "            Session::flash('error', 'ID no especificado.');\n";
+        $method .= "            \$this->redirect('/{$this->entityName}');\n";
+        $method .= "            return;\n";
+        $method .= "        }\n\n";
+
+        $method .= "        \$registro = {$this->modelName}::find(\$id);\n";
+        $method .= "        if (!\$registro) {\n";
+        $method .= "            Session::flash('error', 'Registro no encontrado.');\n";
+        $method .= "            \$this->redirect('/{$this->entityName}');\n";
+        $method .= "            return;\n";
+        $method .= "        }\n\n";
+
+        $method .= "        {$this->modelName}::delete(\$id);\n";
+        $method .= "        Session::flash('success', 'Registro eliminado correctamente.');\n";
+        $method .= "        \$this->redirect('/{$this->entityName}');\n";
+        $method .= "    }\n\n";
+
+        return $method;
+    }
+
+    /**
+     * Crea las configuraciones de CRUD
+     */
+    private function createCrudConfigs(): void
+    {
+        $configDir = CRUDS_DIR . "/{$this->entityName}";
+
+        if (!is_dir($configDir)) {
+            mkdir($configDir, 0755, true);
+        }
+
+        // Generar campos para configuración
+        $camposConfig = $this->generateCamposConfig();
+
+        // Crear config index
+        $this->createIndexConfig($configDir, $camposConfig);
+        $this->createCreateConfig($configDir, $camposConfig);
+        $this->createEditConfig($configDir, $camposConfig);
+        $this->createDeleteConfig($configDir, $camposConfig);
+    }
+
+    /**
+     * Genera la configuración de campos
+     */
+    private function generateCamposConfig(): string
+    {
+        $config = "";
+
+        foreach ($this->columns as $col) {
+            // Verificar si es foreign key para usar select
+            $isForeignKey = isset($this->foreignKeys[$col['name']]);
+            $fieldType = $isForeignKey ? 'select' : $this->mapSqlToInputType($col['type']);
+            $required = !$col['nullable'] && !$col['auto_increment'] ? 'true' : 'false';
+            $hidden = $col['name'] === $this->primaryKey ? 'true' : 'false';
+            $readonly = $col['auto_increment'] ? 'true' : 'false';
+            $label = ucfirst($col['name']);
+            $maxlength = $col['length'] ? $col['length'] : '255';
+
+            $config .= "                '{$col['name']}' => [\n";
+            $config .= "                    'nombre' => '{$col['name']}',\n";
+            $config .= "                    'type' => '{$fieldType}',\n";
+            $config .= "                    'label' => '{$label}',\n";
+            $config .= "                    'maxlength' => {$maxlength},\n";
+            $config .= "                    'readonly' => {$readonly},\n";
+            $config .= "                    'hidden' => {$hidden},\n";
+            $config .= "                    'required' => {$required},\n";
+            $config .= "                    'placeholder' => 'Ingrese {$label}',\n";
+            $config .= "                    'help' => 'Ingrese {$label}',\n";
+            $config .= "                    'class' => 'form-control',\n";
+            $config .= "                    'style' => 'width: 100%;',\n";
+            $config .= "                    'autocomplete' => 'off',\n";
+
+            // Para foreign keys, añadir opciones
+            if ($isForeignKey) {
+                $relatedTable = $this->foreignKeys[$col['name']];
+                $config .= "                    'tabla_rel' => '{$relatedTable}',\n";
+                $config .= "                    'options' => [],\n";
+            }
+
+            $config .= "                ],\n";
+        }
+
+        return $config;
+    }
+
+    /**
+     * Mapea tipos SQL a tipos de input
+     */
+    private function mapSqlToInputType(string $sqlType): string
+    {
+        return match (true) {
+            str_contains($sqlType, 'text') => 'textarea',
+            str_contains($sqlType, 'int') => 'number',
+            str_contains($sqlType, 'decimal') || str_contains($sqlType, 'float') || str_contains($sqlType, 'double') => 'number',
+            str_contains($sqlType, 'date') => 'date',
+            str_contains($sqlType, 'email') => 'email',
+            default => 'text',
+        };
+    }
+
+    /**
+     * Crea el config index
+     */
+    private function createIndexConfig(string $dir, string $campos): void
+    {
+        $title = ucfirst($this->entityName);
+        $content = "<?php    //index view\nreturn [\n";
+        $content .= "    'config' => [\n";
+        $content .= "        'title' => '{$title}',\n";
+        $content .= "        'subtitle' => 'Vista general',\n";
+        $content .= "        'action' => '',\n";
+        $content .= "        'method' => '',\n";
+        $content .= "        'tipo' => 'table',\n";
+        $content .= "        'class_div' => \"p-4 bg-light rounded shadow-sm h-100\",\n";
+        $content .= "        'class_form' => 'row g-4 p-4 bg-light rounded shadow-sm',\n";
+        $content .= "        'class_tr' => 'p-4 bg-light rounded shadow-sm h-100',\n";
+        $content .= "        'class_th' => 'text-center',\n";
+        $content .= "        'class_td' => 'text-center',\n";
+        $content .= "        'class_table' => 'table table-striped table-bordered',\n";
+        $content .= "        'class_table_div' => 'row g-4 p-4 bg-light shadow-sm',\n";
+        $content .= "        'class_thead' => 'thead-light',\n";
+        $content .= "        'class_tbody' => 'container',\n";
+        $content .= "        'class_tfoot' => 'thead-light',\n";
+        $content .= "        'field_id' => '{$this->primaryKey}',\n";
+        $content .= "    ],\n";
+        $content .= "    'comandos' => [\n";
+        $content .= "        'Nuevo' => [\n";
+        $content .= "            'text' => 'Nuevo {$title}',\n";
+        $content .= "            'url' => '/{$this->entityName}/create/',\n";
+        $content .= "            'icon' => 'bi bi-add',\n";
+        $content .= "            'class' => 'btn btn-primary'\n";
+        $content .= "        ],\n";
+        $content .= "    ],\n";
+        $content .= "    'campos' => [\n";
+        $content .= $campos;
+        $content .= "    ],\n";
+        $content .= "    'actividades' => [\n";
+        $content .= "        'edit' => [\n";
+        $content .= "            'text' => 'Editar',\n";
+        $content .= "            'url' => '/{$this->entityName}/edit',\n";
+        $content .= "            'icon' => 'bi bi-pencil',\n";
+        $content .= "            'class' => 'btn btn-warning'\n";
+        $content .= "        ],\n";
+        $content .= "        'delete' => [\n";
+        $content .= "            'text' => 'Eliminar',\n";
+        $content .= "            'url' => '/{$this->entityName}/vista',\n";
+        $content .= "            'icon' => 'bi bi-trash',\n";
+        $content .= "            'class' => 'btn btn-danger'\n";
+        $content .= "        ]\n";
+        $content .= "    ],\n";
+        $content .= "    'buttons' => [\n";
+        $content .= "        'cancel' => [\n";
+        $content .= "            'type' => 'button',\n";
+        $content .= "            'text' => 'Volver',\n";
+        $content .= "            'url' => '',\n";
+        $content .= "            'class' => 'btn btn-outline-secondary btn-rounded',\n";
+        $content .= "            'icon' => 'bi bi-arrow-left',\n";
+        $content .= "            'backbutton' => true,\n";
+        $content .= "        ],\n";
+        $content .= "    ],\n";
+        $content .= "];\n";
+
+        $this->writeFile($dir . "/{$this->entityName}_index.php", $content, "Config Index");
+    }
+
+    /**
+     * Crea el config create
+     */
+    private function createCreateConfig(string $dir, string $campos): void
+    {
+        $title = ucfirst($this->entityName);
+        $content = "<?php\n\n";
+        $content .= "return ['config' => [\n";
+        $content .= "    'title' => '{$title}',\n";
+        $content .= "    'subtitle' => 'Nuevo registro',\n";
+        $content .= "    'action' => 'create',\n";
+        $content .= "    'url_action' => '/{$this->entityName}/store',\n";
+        $content .= "    'method' => 'POST',\n";
+        $content .= "    'tipo' => 'form',\n";
+        $content .= "    'class_div' => \"p-4 bg-light rounded shadow-sm h-100\",\n";
+        $content .= "    'class_form' => 'row g-4 p-4 bg-light rounded shadow-sm',\n";
+        $content .= "    'class_tr' => 'p-4 bg-light rounded shadow-sm h-100',\n";
+        $content .= "    'class_th' => 'text-center',\n";
+        $content .= "    'class_td' => 'text-center',\n";
+        $content .= "    'class_table' => 'table table-striped table-bordered',\n";
+        $content .= "    'class_table_div' => 'row g-4 p-4 bg-light shadow-sm',\n";
+        $content .= "    'class_thead' => 'thead-light',\n";
+        $content .= "    'class_tbody' => 'container',\n";
+        $content .= "    'class_tfoot' => 'thead-light',\n";
+        $content .= "],\n";
+        $content .= "'comandos' => [\n";
+        $content .= "],\n";
+        $content .= "'campos' => [\n";
+
+        // Filtrar campos para create (sin id, sin auto_increment)
+        $camposCreate = "";
+        foreach ($this->columns as $col) {
+            if ($col['name'] === $this->primaryKey && $col['auto_increment']) {
+                continue;
+            }
+            // Verificar si es foreign key para usar select
+            $isForeignKey = isset($this->foreignKeys[$col['name']]);
+            $fieldType = $isForeignKey ? 'select' : $this->mapSqlToInputType($col['type']);
+            $required = !$col['nullable'] && !$col['auto_increment'] ? 'true' : 'false';
+            $hidden = 'false';
+            $readonly = 'false';
+            $label = ucfirst($col['name']);
+            $maxlength = $col['length'] ? $col['length'] : '255';
+
+            $camposCreate .= "    '{$col['name']}' => [\n";
+            $camposCreate .= "        'nombre' => '{$col['name']}',\n";
+            $camposCreate .= "        'type' => '{$fieldType}',\n";
+            $camposCreate .= "        'label' => '{$label}',\n";
+            $camposCreate .= "        'maxlength' => {$maxlength},\n";
+            $camposCreate .= "        'readonly' => {$readonly},\n";
+            $camposCreate .= "        'hidden' => {$hidden},\n";
+            $camposCreate .= "        'required' => {$required},\n";
+            $camposCreate .= "        'placeholder' => 'Ingrese {$label}',\n";
+            $camposCreate .= "        'help' => 'Ingrese {$label}',\n";
+            $camposCreate .= "        'class' => 'form-control',\n";
+            $camposCreate .= "        'style' => 'width: 100%;',\n";
+            $camposCreate .= "        'autocomplete' => 'off',\n";
+
+            if ($isForeignKey) {
+                $relatedTable = $this->foreignKeys[$col['name']];
+                $camposCreate .= "        'tabla_rel' => '{$relatedTable}',\n";
+                $camposCreate .= "        'options' => [],\n";
+            }
+
+            $camposCreate .= "    ],\n";
+        }
+
+        $content .= $camposCreate;
+        $content .= "],\n";
+        $content .= "'actividades' => [\n";
+        $content .= "],\n";
+        $content .= "'buttons' => [\n";
+        $content .= "    'cancel' => [\n";
+        $content .= "        'type' => 'button',\n";
+        $content .= "        'text' => 'Volver',\n";
+        $content .= "        'url' => '',\n";
+        $content .= "        'class' => 'btn btn-outline-secondary btn-rounded',\n";
+        $content .= "        'icon' => 'bi bi-arrow-left',\n";
+        $content .= "        'backbutton' => true,\n";
+        $content .= "    ],\n";
+        $content .= "    'submit' => [\n";
+        $content .= "        'type' => 'submit',\n";
+        $content .= "        'text' => 'Guardar',\n";
+        $content .= "        'class' => 'btn btn-gradient btn-rounded',\n";
+        $content .= "        'icon' => 'bi bi-check-circle me-1',\n";
+        $content .= "    ],\n";
+        $content .= "],\n";
+        $content .= "];\n";
+
+        $this->writeFile($dir . "/{$this->entityName}_create.php", $content, "Config Create");
+    }
+
+    /**
+     * Crea el config edit
+     */
+    private function createEditConfig(string $dir, string $campos): void
+    {
+        $title = ucfirst($this->entityName);
+        $content = "<?php    //edit view\nreturn [\n";
+        $content .= "    'config' => [\n";
+        $content .= "        'title' => '{$title}',\n";
+        $content .= "        'subtitle' => 'Modificar registro',\n";
+        $content .= "        'action' => 'update',\n";
+        $content .= "        'url_action' => '/{$this->entityName}/update',\n";
+        $content .= "        'method' => 'POST',\n";
+        $content .= "        'tipo' => 'form',\n";
+        $content .= "        'class_div' => \"p-4 bg-light rounded shadow-sm h-100\",\n";
+        $content .= "        'class_form' => 'row g-4 p-4 bg-light rounded shadow-sm',\n";
+        $content .= "        'class_tr' => 'p-4 bg-light rounded shadow-sm h-100',\n";
+        $content .= "        'class_th' => 'text-center',\n";
+        $content .= "        'class_td' => 'text-center',\n";
+        $content .= "        'class_table' => 'table table-striped table-bordered',\n";
+        $content .= "        'class_table_div' => 'row g-4 p-4 bg-light shadow-sm',\n";
+        $content .= "        'class_thead' => 'thead-light',\n";
+        $content .= "        'class_tbody' => 'container',\n";
+        $content .= "        'class_tfoot' => 'thead-light',\n";
+        $content .= "    ],\n";
+        $content .= "    'comandos' => [\n";
+        $content .= "        'Nuevo' => [\n";
+        $content .= "            'text' => 'Nuevo {$title}',\n";
+        $content .= "            'url' => '/{$this->entityName}/create/',\n";
+        $content .= "            'icon' => 'bi bi-add',\n";
+        $content .= "            'class' => 'btn btn-primary'\n";
+        $content .= "        ],\n";
+        $content .= "    ],\n";
+        $content .= "    'campos' => [\n";
+
+        // Filtrar campos para edit (sin id, sin auto_increment)
+        $camposEdit = "";
+        foreach ($this->columns as $col) {
+            if ($col['name'] === $this->primaryKey && $col['auto_increment']) {
+                continue;
+            }
+            // Verificar si es foreign key para usar select
+            $isForeignKey = isset($this->foreignKeys[$col['name']]);
+            $fieldType = $isForeignKey ? 'select' : $this->mapSqlToInputType($col['type']);
+            $required = !$col['nullable'] && !$col['auto_increment'] ? 'true' : 'false';
+            $hidden = 'false';
+            $readonly = 'false';
+            $label = ucfirst($col['name']);
+            $maxlength = $col['length'] ? $col['length'] : '255';
+
+            $camposEdit .= "        '{$col['name']}' => [\n";
+            $camposEdit .= "            'nombre' => '{$col['name']}',\n";
+            $camposEdit .= "            'type' => '{$fieldType}',\n";
+            $camposEdit .= "            'label' => '{$label}',\n";
+            $camposEdit .= "            'maxlength' => {$maxlength},\n";
+            $camposEdit .= "            'readonly' => {$readonly},\n";
+            $camposEdit .= "            'hidden' => {$hidden},\n";
+            $camposEdit .= "            'required' => {$required},\n";
+            $camposEdit .= "            'placeholder' => 'Ingrese {$label}',\n";
+            $camposEdit .= "            'help' => 'Ingrese {$label}',\n";
+            $camposEdit .= "            'class' => 'form-control',\n";
+            $camposEdit .= "            'style' => 'width: 100%;',\n";
+            $camposEdit .= "            'autocomplete' => 'off',\n";
+
+            if ($isForeignKey) {
+                $relatedTable = $this->foreignKeys[$col['name']];
+                $camposEdit .= "            'tabla_rel' => '{$relatedTable}',\n";
+                $camposEdit .= "            'options' => [],\n";
+            }
+
+            $camposEdit .= "        ],\n";
+        }
+
+        $content .= $camposEdit;
+        $content .= "    ],\n";
+        $content .= "    'actividades' => [\n";
+        $content .= "        'delete' => [\n";
+        $content .= "            'text' => 'Eliminar',\n";
+        $content .= "            'url' => '/{$this->entityName}/delete/',\n";
+        $content .= "            'icon' => 'bi bi-trash',\n";
+        $content .= "            'class' => 'btn btn-danger'\n";
+        $content .= "        ]\n";
+        $content .= "    ],\n";
+        $content .= "    'buttons' => [\n";
+        $content .= "        'cancel' => [\n";
+        $content .= "            'type' => 'button',\n";
+        $content .= "            'text' => 'Volver',\n";
+        $content .= "            'url' => '',\n";
+        $content .= "            'class' => 'btn btn-outline-secondary btn-rounded',\n";
+        $content .= "            'icon' => 'bi bi-arrow-left',\n";
+        $content .= "            'backbutton' => true,\n";
+        $content .= "        ],\n";
+        $content .= "        'submit' => [\n";
+        $content .= "            'type' => 'submit',\n";
+        $content .= "            'text' => 'Guardar',\n";
+        $content .= "            'class' => 'btn btn-gradient btn-rounded',\n";
+        $content .= "            'icon' => 'bi bi-check-circle me-1',\n";
+        $content .= "        ],\n";
+        $content .= "    ],\n";
+        $content .= "];\n";
+
+        $this->writeFile($dir . "/{$this->entityName}_edit.php", $content, "Config Edit");
+    }
+
+    /**
+     * Crea el config delete (confirmación de borrado)
+     */
+    private function createDeleteConfig(string $dir, string $campos): void
+    {
+        $title = ucfirst($this->entityName);
+        $content = "<?php    //delete confirmation view\nreturn [\n";
+        $content .= "    'config' => [\n";
+        $content .= "        'title' => '{$title}',\n";
+        $content .= "        'subtitle' => 'Eliminar registro',\n";
+        $content .= "        'url_action' => '/{$this->entityName}/delete',\n";
+        $content .= "        'method' => 'POST',\n";
+        $content .= "        'tipo' => 'form',\n";
+        $content .= "        'class_div' => \"p-4 bg-light rounded shadow-sm h-100\",\n";
+        $content .= "        'class_form' => 'row g-4 p-4 bg-light rounded shadow-sm',\n";
+        $content .= "        'class_tr' => 'p-4 bg-light rounded shadow-sm h-100',\n";
+        $content .= "        'class_th' => 'text-center',\n";
+        $content .= "        'class_td' => 'text-center',\n";
+        $content .= "        'class_table' => 'table table-striped table-bordered',\n";
+        $content .= "        'class_table_div' => 'row g-4 p-4 bg-light shadow-sm',\n";
+        $content .= "        'class_thead' => 'thead-light',\n";
+        $content .= "        'class_tbody' => 'container',\n";
+        $content .= "        'class_tfoot' => 'thead-light',\n";
+        $content .= "        'field_id' => '{$this->primaryKey}',\n";
+        $content .= "    ],\n";
+        $content .= "    'comandos' => [\n";
+        $content .= "    ],\n";
+        $content .= "    'campos' => [\n";
+
+        // Campos readonly para confirmación
+        foreach ($this->columns as $col) {
+            $hidden = $col['name'] === $this->primaryKey ? 'true' : 'false';
+            $readonly = 'true';
+            $label = ucfirst($col['name']);
+            $maxlength = $col['length'] ? $col['length'] : '255';
+
+            $content .= "        '{$col['name']}' => [\n";
+            $content .= "            'nombre' => '{$col['name']}',\n";
+            $content .= "            'type' => 'text',\n";
+            $content .= "            'label' => '{$label}',\n";
+            $content .= "            'maxlength' => {$maxlength},\n";
+            $content .= "            'readonly' => {$readonly},\n";
+            $content .= "            'hidden' => {$hidden},\n";
+            $content .= "            'required' => false,\n";
+            $content .= "            'placeholder' => '',\n";
+            $content .= "            'help' => '',\n";
+            $content .= "            'class' => 'form-control',\n";
+            $content .= "            'style' => 'width: 100%;',\n";
+            $content .= "            'autocomplete' => 'off',\n";
+            $content .= "        ],\n";
+        }
+
+        $content .= "    ],\n";
+        $content .= "    'actividades' => [\n";
+        $content .= "    ],\n";
+        $content .= "    'buttons' => [\n";
+        $content .= "        'cancel' => [\n";
+        $content .= "            'type' => 'button',\n";
+        $content .= "            'text' => 'Volver',\n";
+        $content .= "            'url' => '',\n";
+        $content .= "            'class' => 'btn btn-outline-secondary btn-rounded',\n";
+        $content .= "            'icon' => 'bi bi-arrow-left',\n";
+        $content .= "            'backbutton' => true,\n";
+        $content .= "        ],\n";
+        $content .= "        'delete' => [\n";
+        $content .= "            'type' => 'submit',\n";
+        $content .= "            'text' => 'Eliminar registro',\n";
+        $content .= "            'class' => 'btn btn-danger btn-rounded',\n";
+        $content .= "            'icon' => 'bi bi-trash me-1',\n";
+        $content .= "        ],\n";
+        $content .= "    ],\n";
+        $content .= "];\n";
+
+        $this->writeFile($dir . "/{$this->entityName}_delete.php", $content, "Config Delete");
+    }
+
+    /**
+     * Agrega las rutas al archivo de rutas
+     */
+    private function addRoutes(): void
+    {
+        $routesContent = file_get_contents(ROUTES_FILE);
+
+        // Verificar si las rutas ya existen
+        $marker = "// Rutas para {$this->modelName}";
+        if (str_contains($routesContent, $marker)) {
+            echo COLOR_YELLOW . "  ⚠ " . COLOR_RESET . "Las rutas ya existen en config/routes.php (omitido)\n";
+            return;
+        }
+
+        $routesToAdd = $marker . "\n\n";
+        $routesToAdd .= "Router::get('/{$this->entityName}', [{$this->controllerName}::class, 'index'], [AdminMiddleware::class]);\n";
+        $routesToAdd .= "Router::get('/{$this->entityName}/edit/{id}', [{$this->controllerName}::class, 'edit'], [AdminMiddleware::class]);\n";
+        $routesToAdd .= "Router::get('/{$this->entityName}/create', [{$this->controllerName}::class, 'create'], [AdminMiddleware::class]);\n";
+        $routesToAdd .= "Router::post('/{$this->entityName}/store', [{$this->controllerName}::class, 'store'], [AdminMiddleware::class]);\n";
+        $routesToAdd .= "Router::post('/{$this->entityName}/update/{id}', [{$this->controllerName}::class, 'update'], [AdminMiddleware::class]);\n";
+        $routesToAdd .= "Router::get('/{$this->entityName}/vista/{id}', [{$this->controllerName}::class, 'vista'], [AdminMiddleware::class]);\n";
+        $routesToAdd .= "Router::post('/{$this->entityName}/delete/{id}', [{$this->controllerName}::class, 'delete'], [AdminMiddleware::class]);\n\n";
+
+        // Buscar un lugar apropiado para insertar
+        // 1. Buscar "// Rutas para Ciudades" como referencia
+        if (preg_match('/(\n\/\/ Rutas para Ciudades\n)/', $routesContent, $matches)) {
+            $routesContent = str_replace(
+                $matches[1],
+                $routesToAdd . $matches[1],
+                $routesContent
+            );
+        }
+        // 2. Si no, buscar "// Rutas para Provincia" como referencia
+        elseif (preg_match('/(\n\/\/ Rutas para Provincia\n)/', $routesContent, $matches)) {
+            $routesContent = str_replace(
+                $matches[1],
+                $routesToAdd . $matches[1],
+                $routesContent
+            );
+        }
+        // 3. Si no, buscar "// Rutas para" genérico y agregar antes
+        elseif (preg_match('/\n\/\/ Rutas para /', $routesContent)) {
+            $routesContent = preg_replace(
+                '/(\n\/\/ Rutas para )/',
+                "\n" . trim($routesToAdd) . "\n$1",
+                $routesContent,
+                1
+            );
+        }
+        // 4. Si no, agregar al final del archivo
+        else {
+            $routesContent = trim($routesContent) . "\n\n" . $routesToAdd;
+        }
+
+        file_put_contents(ROUTES_FILE, $routesContent);
+
+        echo COLOR_GREEN . "  ✓ " . COLOR_RESET . "Rutas agregadas a config/routes.php\n";
+    }
+
+    /**
+     * Escribe un archivo
+     */
+    private function writeFile(string $path, string $content, string $type): void
+    {
+        $dir = dirname($path);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        file_put_contents($path, $content);
+        echo COLOR_GREEN . "  ✓ " . COLOR_RESET . "{$type} creado: " . COLOR_CYAN . $path . COLOR_RESET . "\n";
+    }
+
+    /**
+     * Muestra los archivos creados
+     */
+    private function showFilesCreated(): void
+    {
+        $title = ucfirst($this->entityName);
+        echo "\n";
+        echo "  " . COLOR_GREEN . "📄" . COLOR_RESET . " app/Models/{$this->modelName}.php\n";
+        echo "  " . COLOR_GREEN . "📄" . COLOR_RESET . " app/Repositories/{$this->modelName}Repository.php\n";
+        echo "  " . COLOR_GREEN . "📄" . COLOR_RESET . " app/Services/{$this->modelName}Service.php\n";
+        echo "  " . COLOR_GREEN . "📄" . COLOR_RESET . " app/Controllers/{$this->controllerName}.php\n";
+        echo "  " . COLOR_GREEN . "📁" . COLOR_RESET . " config/cruds/{$this->entityName}/\n";
+        echo "    ├─ {$this->entityName}_index.php\n";
+        echo "    ├─ {$this->entityName}_create.php\n";
+        echo "    ├─ {$this->entityName}_edit.php\n";
+        echo "    └─ {$this->entityName}_delete.php\n";
+        echo "  " . COLOR_GREEN . "📝" . COLOR_RESET . " Rutas agregadas a config/routes.php\n\n";
+
+        echo COLOR_CYAN . "🔗 URLs disponibles:\n" . COLOR_RESET;
+        echo "  • GET  /{$this->entityName}           - Listar registros\n";
+        echo "  • GET  /{$this->entityName}/create    - Formulario crear\n";
+        echo "  • POST /{$this->entityName}/store     - Guardar nuevo\n";
+        echo "  • GET  /{$this->entityName}/edit/{id} - Formulario editar\n";
+        echo "  • POST /{$this->entityName}/update/{id} - Actualizar\n";
+        echo "  • GET  /{$this->entityName}/vista/{id} - Confirmar eliminar\n";
+        echo "  • POST /{$this->entityName}/delete/{id} - Eliminar\n\n";
+    }
+
+    /**
+     * Muestra un error
+     */
+    private function error(string $message): void
+    {
+        echo COLOR_RED . "\n❌ Error: {$message}\n" . COLOR_RESET;
+    }
+}
+
+// Ejecutar el generador
+try {
+    $generator = new CrudGenerator();
+    $generator->run($argv);
+} catch (Throwable $e) {
+    echo COLOR_RED . "\n❌ Error: " . $e->getMessage() . "\n" . COLOR_RESET;
+    echo COLOR_YELLOW . $e->getTraceAsString() . "\n" . COLOR_RESET;
+    exit(1);
+}
