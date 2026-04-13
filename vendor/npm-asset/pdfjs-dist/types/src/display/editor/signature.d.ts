@@ -31,6 +31,8 @@ export class SignatureEditor extends DrawingEditor {
         areContours: any;
         outline: InkDrawOutline;
     };
+    /** @inheritdoc */
+    get toolbarButtons(): any[][] | null;
     addSignature(data: any, heightInPage: any, description: any, uuid: any): void;
     getFromImage(bitmap: any): {
         outline: InkDrawOutline;
@@ -64,15 +66,10 @@ export class SignatureEditor extends DrawingEditor {
     _drawingOptions: any;
     /** @inheritdoc */
     serialize(isForCopying?: boolean): {
-        annotationType: number;
         isSignature: boolean;
         areContours: boolean;
         color: number[];
         thickness: any;
-        pageIndex: number;
-        rect: any;
-        rotation: number;
-        structTreeParentId: any;
     } | null;
     #private;
 }

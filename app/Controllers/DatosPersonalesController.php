@@ -15,7 +15,7 @@ use App\Support\Sanitizer;
 use App\Services\UserService;
 use App\Services\DocumentService;
 use App\Services\MatriculaService;
-use setasign\Fpdi\Fpdi;
+use setasign\Fpdi\Tcpdf\Fpdi;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\Image\ImagickImageBackEnd;
@@ -1049,21 +1049,21 @@ public function generarPDF(Request $request, array $params): void
 
         // ---------- TÍTULO CENTRADO ----------
         $pdf->SetY($titleY);
-        $pdf->SetFont('Arial', 'B', 22);
-        $pdf->Cell(0, 10, iconv('UTF-8', 'ISO-8859-1//TRANSLIT','CONSTANCIA DE MATRICULACIÓN'), 0, 1, 'C');
+        $pdf->SetFont('helvetica', 'B', 22);
+        $pdf->Cell(0, 10, 'CONSTANCIA DE MATRICULACIÓN', 0, 1, 'C');
 
         // Pequeño subtítulo (opcional)
-        $pdf->SetFont('Arial', '', 11);
-        $pdf->Cell(0, 6, iconv('UTF-8', 'ISO-8859-1//TRANSLIT','Consejo Profesional Bioquímico de La Pampa'), 0, 1, 'C');
+        $pdf->SetFont('helvetica', '', 11);
+        $pdf->Cell(0, 6, 'Consejo Profesional Bioquímico de La Pampa', 0, 1, 'C');
 
         $pdf->Ln(10);
 
         // ---------- CUERPO ----------
-        $pdf->SetFont('Arial', '', 13);
+        $pdf->SetFont('helvetica', '', 13);
         $pdf->SetX($left);
-        $pdf->MultiCell($contentW, 8, iconv('UTF-8', 'ISO-8859-1//TRANSLIT',
+        $pdf->MultiCell($contentW, 8,
         "El Consejo Profesional Bioquímico de La Pampa deja constancia que:\n" . "$nombreCompleto\n" .
-        "DNI: $dni\n\n" . $estadomatricula ), 0, 'C');
+        "DNI: $dni\n\n" . $estadomatricula, 0, 'C');
 
         // ---------- FIRMA (centrada) ----------
         $firmY = 180;                  // ajustá esta Y para subir/bajar el bloque de firma
@@ -1082,21 +1082,21 @@ public function generarPDF(Request $request, array $params): void
 
         // Nombre y cargo
         $pdf->SetY($lineY + 4);
-        $pdf->SetFont('Arial', '', 12);
+        $pdf->SetFont('helvetica', '', 12);
 //        $pdf->Cell(0, 6, ($otorganteNombre), 0, 1, 'C');
-        $pdf->SetFont('Arial', 'I', 10);
+        $pdf->SetFont('helvetica', 'I', 10);
 //        $pdf->Cell(0, 5, ($otorganteCargo), 0, 1, 'C');
 
         // ---------- ESTADO ACTUAL ----------
         $pdf->SetY(250); // cerca del pie
-        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->SetFont('helvetica', 'B', 12);
         $estado = $matricula['estado'] ?? 'Desconocido';
         $estado = 'Habilitado';
         //$pdf->Cell(0, 8, iconv('UTF-8', 'ISO-8859-1//TRANSLIT',"Estado Actual de la Matrícula: $estado"), 0, 1, 'C');
 
         //$pdf->Output('I', 'constancia.pdf');
 
-        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->SetFont('helvetica', 'B', 12);
 
         // Normalizo el texto
         $estado = ucfirst(strtolower(trim($estado)));
@@ -1121,7 +1121,7 @@ public function generarPDF(Request $request, array $params): void
         }
 
         // Texto principal del estado
-        $pdf->Cell(0, 8, iconv('UTF-8', 'ISO-8859-1//TRANSLIT', "Siendo su estado actual: $estado" ), 0, 1, 'C');
+        $pdf->Cell(0, 8, "Siendo su estado actual: $estado", 0, 1, 'C');
         //$pdf->Cell( 0, 10, mb_convert_encoding("Siendo su estado actual: $estado", 'ISO-8859-1', 'UTF-8'), 0, 1, 'C' );    
 
         // Vuelvo al color por defecto (negro)
@@ -1232,9 +1232,9 @@ public function generarPDF(Request $request, array $params): void
 
 
         // --- NOMBRE Y APELLIDO ---
-        $pdf->SetFont('Arial', '', 10);
+        $pdf->SetFont('helvetica', '', 10);
         $pdf->SetXY($x0 + 4, $y0 + 18);
-        $pdf->MultiCell(46, 4, iconv('UTF-8', 'ISO-8859-1//TRANSLIT', ucwords($datos['apellido'] . ', ' . $datos['nombre'])) , 0, 'L');
+        $pdf->MultiCell(46, 4, mb_convert_case($datos['apellido'] . ', ' . $datos['nombre'], MB_CASE_TITLE, 'UTF-8'), 0, 'L');
 
         // --- MATRÍCULA ASIGNADA ---
         $pdf->SetXY($x0 + 4, $y0 + 28);
@@ -1387,9 +1387,9 @@ public function generarPDF(Request $request, array $params): void
         }
 
         // --- NOMBRE Y APELLIDO ---
-        $pdf->SetFont('Arial', '', 10);
+        $pdf->SetFont('helvetica', '', 10);
         $pdf->SetXY($x0 + 4, $y0 + 18);
-        $pdf->MultiCell(46, 4, ucwords($datos['apellido'] . ', ' . $datos['nombre']), 0, 'L');
+        $pdf->MultiCell(46, 4, mb_convert_case($datos['apellido'] . ', ' . $datos['nombre'], MB_CASE_TITLE, 'UTF-8'), 0, 'L');
 
         // --- MATRÍCULA ASIGNADA ---
         $pdf->SetXY($x0 + 4, $y0 + 28);

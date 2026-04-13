@@ -18,7 +18,7 @@ use App\Services\FileService;
 use App\Services\DocumentService;
 use App\Services\EmailService;
 use App\Services\TramiteService;
-use FPDF\FPDF;
+use TCPDF;
 
 /**
  * MatriculaController - Refactored to use Service Layer
@@ -913,7 +913,7 @@ class MatriculaController extends Controller
         // Import QR library
         require_once $_SESSION['directoriobase'] . '/vendor/bacon/bacon-qr-code/src/BaconQrCode.php';
 
-        $pdf = new FPDF('P', 'mm', 'A5');
+        $pdf = new TCPDF('P', 'mm', 'A5', true, 'UTF-8', false);
         $pdf->AddPage();
 
         // Configuration
@@ -934,7 +934,7 @@ class MatriculaController extends Controller
         }
 
         // Name
-        $pdf->SetFont('Arial', '', 10);
+        $pdf->SetFont('helvetica', '', 10);
         $pdf->SetXY($x0 + 4, $y0 + 18);
         $pdf->MultiCell(46, 4, $datos['apellido'] . ', ' . $datos['nombres'], 0, 'L');
 

@@ -20,6 +20,10 @@
  * JavaScript code in this page
  */
 
+/**
+ * pdfjsVersion = 5.6.205
+ * pdfjsBuild = ada343803
+ */
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
 /******/ 
@@ -42,24 +46,10 @@
 /******/ })();
 /******/ 
 /************************************************************************/
-var __webpack_exports__ = globalThis.pdfjsImageDecoders = {};
-
-// EXPORTS
-__webpack_require__.d(__webpack_exports__, {
-  Jbig2Error: () => (/* reexport */ Jbig2Error),
-  Jbig2Image: () => (/* reexport */ Jbig2Image),
-  JpegError: () => (/* reexport */ JpegError),
-  JpegImage: () => (/* reexport */ JpegImage),
-  JpxError: () => (/* reexport */ JpxError),
-  JpxImage: () => (/* reexport */ JpxImage),
-  VerbosityLevel: () => (/* reexport */ VerbosityLevel),
-  getVerbosityLevel: () => (/* reexport */ getVerbosityLevel),
-  setVerbosityLevel: () => (/* reexport */ setVerbosityLevel)
-});
+var __webpack_exports__ = {};
 
 ;// ./src/shared/util.js
 const isNodeJS = typeof process === "object" && process + "" === "[object process]" && !process.versions.nw && !(process.versions.electron && process.type && process.type !== "browser");
-const IDENTITY_MATRIX = (/* unused pure expression or super */ null && ([1, 0, 0, 1, 0, 0]));
 const FONT_IDENTITY_MATRIX = (/* unused pure expression or super */ null && ([0.001, 0, 0, 0.001, 0, 0]));
 const LINE_FACTOR = 1.35;
 const LINE_DESCENT_FACTOR = 0.35;
@@ -81,7 +71,7 @@ const AnnotationMode = {
   ENABLE_FORMS: 2,
   ENABLE_STORAGE: 3
 };
-const util_AnnotationEditorPrefix = "pdfjs_internal_editor_";
+const AnnotationEditorPrefix = "pdfjs_internal_editor_";
 const AnnotationEditorType = {
   DISABLE: -1,
   NONE: 0,
@@ -89,7 +79,9 @@ const AnnotationEditorType = {
   HIGHLIGHT: 9,
   STAMP: 13,
   INK: 15,
-  SIGNATURE: 101
+  POPUP: 16,
+  SIGNATURE: 101,
+  COMMENT: 102
 };
 const AnnotationEditorParamsType = {
   RESIZE: 1,
@@ -101,10 +93,9 @@ const AnnotationEditorParamsType = {
   INK_THICKNESS: 22,
   INK_OPACITY: 23,
   HIGHLIGHT_COLOR: 31,
-  HIGHLIGHT_DEFAULT_COLOR: 32,
-  HIGHLIGHT_THICKNESS: 33,
-  HIGHLIGHT_FREE: 34,
-  HIGHLIGHT_SHOW_ALL: 35,
+  HIGHLIGHT_THICKNESS: 32,
+  HIGHLIGHT_FREE: 33,
+  HIGHLIGHT_SHOW_ALL: 34,
   DRAW_STEP: 41
 };
 const PermissionFlag = {
@@ -116,6 +107,11 @@ const PermissionFlag = {
   COPY_FOR_ACCESSIBILITY: 0x200,
   ASSEMBLE: 0x400,
   PRINT_HIGH_QUALITY: 0x800
+};
+const MeshFigureType = {
+  TRIANGLES: 1,
+  LATTICE: 2,
+  PATCH: 3
 };
 const TextRenderingMode = {
   FILL: 0,
@@ -129,7 +125,7 @@ const TextRenderingMode = {
   FILL_STROKE_MASK: 3,
   ADD_TO_PATH_FLAG: 4
 };
-const util_ImageKind = {
+const ImageKind = {
   GRAYSCALE_1BPP: 1,
   RGB_24BPP: 2,
   RGBA_32BPP: 3
@@ -328,13 +324,15 @@ const OPS = {
   paintSolidColorImageMask: 90,
   constructPath: 91,
   setStrokeTransparent: 92,
-  setFillTransparent: 93
+  setFillTransparent: 93,
+  rawFillPath: 94
 };
 const DrawOPS = {
   moveTo: 0,
   lineTo: 1,
   curveTo: 2,
-  closePath: 3
+  quadraticCurveTo: 3,
+  closePath: 4
 };
 const PasswordResponses = {
   NEED_PASSWORD: 1,
@@ -351,18 +349,18 @@ function getVerbosityLevel() {
 }
 function info(msg) {
   if (verbosity >= VerbosityLevel.INFOS) {
-    console.log(`Info: ${msg}`);
+    console.info(`Info: ${msg}`);
   }
 }
-function util_warn(msg) {
+function warn(msg) {
   if (verbosity >= VerbosityLevel.WARNINGS) {
-    console.log(`Warning: ${msg}`);
+    console.warn(`Warning: ${msg}`);
   }
 }
 function unreachable(msg) {
   throw new Error(msg);
 }
-function util_assert(cond, msg) {
+function assert(cond, msg) {
   if (!cond) {
     unreachable(msg);
   }
@@ -398,6 +396,20 @@ function createValidAbsoluteUrl(url, baseUrl = null, options = null) {
   }
   const absoluteUrl = baseUrl ? URL.parse(url, baseUrl) : URL.parse(url);
   return _isValidProtocol(absoluteUrl) ? absoluteUrl : null;
+}
+function updateUrlHash(url, hash, allowRel = false) {
+  const res = URL.parse(url);
+  if (res) {
+    res.hash = hash;
+    return res.href;
+  }
+  if (allowRel && createValidAbsoluteUrl(url, "http://example.com")) {
+    return url.split("#", 1)[0] + `${hash ? `#${hash}` : ""}`;
+  }
+  return "";
+}
+function stripPath(str) {
+  return str.substring(str.lastIndexOf("/") + 1);
 }
 function shadow(obj, prop, value, nonSerializable = false) {
   Object.defineProperty(obj, prop, {
@@ -482,15 +494,8 @@ function stringToBytes(str) {
 function string32(value) {
   return String.fromCharCode(value >> 24 & 0xff, value >> 16 & 0xff, value >> 8 & 0xff, value & 0xff);
 }
-function util_objectSize(obj) {
+function objectSize(obj) {
   return Object.keys(obj).length;
-}
-function objectFromMap(map) {
-  const obj = Object.create(null);
-  for (const [key, value] of map) {
-    obj[key] = value;
-  }
-  return obj;
 }
 function isLittleEndian() {
   const buffer8 = new Uint8Array(4);
@@ -506,7 +511,7 @@ function isEvalSupported() {
     return false;
   }
 }
-class util_FeatureTest {
+class FeatureTest {
   static get isLittleEndian() {
     return shadow(this, "isLittleEndian", isLittleEndian());
   }
@@ -519,73 +524,168 @@ class util_FeatureTest {
   static get isImageDecoderSupported() {
     return shadow(this, "isImageDecoderSupported", typeof ImageDecoder !== "undefined");
   }
+  static get isFloat16ArraySupported() {
+    return shadow(this, "isFloat16ArraySupported", typeof Float16Array !== "undefined");
+  }
+  static get isSanitizerSupported() {
+    return shadow(this, "isSanitizerSupported", typeof Sanitizer !== "undefined");
+  }
   static get platform() {
-    if (typeof navigator !== "undefined" && typeof navigator?.platform === "string" && typeof navigator?.userAgent === "string") {
-      const {
-        platform,
-        userAgent
-      } = navigator;
-      return shadow(this, "platform", {
-        isAndroid: userAgent.includes("Android"),
-        isLinux: platform.includes("Linux"),
-        isMac: platform.includes("Mac"),
-        isWindows: platform.includes("Win"),
-        isFirefox: userAgent.includes("Firefox")
-      });
-    }
+    const {
+      platform,
+      userAgent
+    } = navigator;
     return shadow(this, "platform", {
-      isAndroid: false,
-      isLinux: false,
-      isMac: false,
-      isWindows: false,
-      isFirefox: false
+      isAndroid: userAgent.includes("Android"),
+      isLinux: platform.includes("Linux"),
+      isMac: platform.includes("Mac"),
+      isWindows: platform.includes("Win"),
+      isFirefox: userAgent.includes("Firefox")
     });
   }
   static get isCSSRoundSupported() {
     return shadow(this, "isCSSRoundSupported", globalThis.CSS?.supports?.("width: round(1.5px, 1px)"));
   }
 }
-const util_hexNumbers = Array.from(Array(256).keys(), n => n.toString(16).padStart(2, "0"));
-class util_Util {
+const hexNumbers = Array.from(Array(256).keys(), n => n.toString(16).padStart(2, "0"));
+class Util {
   static makeHexColor(r, g, b) {
-    return `#${util_hexNumbers[r]}${util_hexNumbers[g]}${util_hexNumbers[b]}`;
+    return `#${hexNumbers[r]}${hexNumbers[g]}${hexNumbers[b]}`;
+  }
+  static domMatrixToTransform(dm) {
+    return [dm.a, dm.b, dm.c, dm.d, dm.e, dm.f];
+  }
+  static scaleMinMax(transform, minMax) {
+    let temp;
+    if (transform[0]) {
+      if (transform[0] < 0) {
+        temp = minMax[0];
+        minMax[0] = minMax[2];
+        minMax[2] = temp;
+      }
+      minMax[0] *= transform[0];
+      minMax[2] *= transform[0];
+      if (transform[3] < 0) {
+        temp = minMax[1];
+        minMax[1] = minMax[3];
+        minMax[3] = temp;
+      }
+      minMax[1] *= transform[3];
+      minMax[3] *= transform[3];
+    } else {
+      temp = minMax[0];
+      minMax[0] = minMax[1];
+      minMax[1] = temp;
+      temp = minMax[2];
+      minMax[2] = minMax[3];
+      minMax[3] = temp;
+      if (transform[1] < 0) {
+        temp = minMax[1];
+        minMax[1] = minMax[3];
+        minMax[3] = temp;
+      }
+      minMax[1] *= transform[1];
+      minMax[3] *= transform[1];
+      if (transform[2] < 0) {
+        temp = minMax[0];
+        minMax[0] = minMax[2];
+        minMax[2] = temp;
+      }
+      minMax[0] *= transform[2];
+      minMax[2] *= transform[2];
+    }
+    minMax[0] += transform[4];
+    minMax[1] += transform[5];
+    minMax[2] += transform[4];
+    minMax[3] += transform[5];
   }
   static transform(m1, m2) {
     return [m1[0] * m2[0] + m1[2] * m2[1], m1[1] * m2[0] + m1[3] * m2[1], m1[0] * m2[2] + m1[2] * m2[3], m1[1] * m2[2] + m1[3] * m2[3], m1[0] * m2[4] + m1[2] * m2[5] + m1[4], m1[1] * m2[4] + m1[3] * m2[5] + m1[5]];
   }
-  static applyTransform(p, m) {
-    const xt = p[0] * m[0] + p[1] * m[2] + m[4];
-    const yt = p[0] * m[1] + p[1] * m[3] + m[5];
-    return [xt, yt];
+  static multiplyByDOMMatrix(m, md) {
+    return [m[0] * md.a + m[2] * md.b, m[1] * md.a + m[3] * md.b, m[0] * md.c + m[2] * md.d, m[1] * md.c + m[3] * md.d, m[0] * md.e + m[2] * md.f + m[4], m[1] * md.e + m[3] * md.f + m[5]];
+  }
+  static applyTransform(p, m, pos = 0) {
+    const p0 = p[pos];
+    const p1 = p[pos + 1];
+    p[pos] = p0 * m[0] + p1 * m[2] + m[4];
+    p[pos + 1] = p0 * m[1] + p1 * m[3] + m[5];
+  }
+  static applyTransformToBezier(p, transform, pos = 0) {
+    const m0 = transform[0];
+    const m1 = transform[1];
+    const m2 = transform[2];
+    const m3 = transform[3];
+    const m4 = transform[4];
+    const m5 = transform[5];
+    for (let i = 0; i < 6; i += 2) {
+      const pI = p[pos + i];
+      const pI1 = p[pos + i + 1];
+      p[pos + i] = pI * m0 + pI1 * m2 + m4;
+      p[pos + i + 1] = pI * m1 + pI1 * m3 + m5;
+    }
   }
   static applyInverseTransform(p, m) {
+    const p0 = p[0];
+    const p1 = p[1];
     const d = m[0] * m[3] - m[1] * m[2];
-    const xt = (p[0] * m[3] - p[1] * m[2] + m[2] * m[5] - m[4] * m[3]) / d;
-    const yt = (-p[0] * m[1] + p[1] * m[0] + m[4] * m[1] - m[5] * m[0]) / d;
-    return [xt, yt];
+    p[0] = (p0 * m[3] - p1 * m[2] + m[2] * m[5] - m[4] * m[3]) / d;
+    p[1] = (-p0 * m[1] + p1 * m[0] + m[4] * m[1] - m[5] * m[0]) / d;
   }
-  static getAxialAlignedBoundingBox(r, m) {
-    const p1 = this.applyTransform(r, m);
-    const p2 = this.applyTransform(r.slice(2, 4), m);
-    const p3 = this.applyTransform([r[0], r[3]], m);
-    const p4 = this.applyTransform([r[2], r[1]], m);
-    return [Math.min(p1[0], p2[0], p3[0], p4[0]), Math.min(p1[1], p2[1], p3[1], p4[1]), Math.max(p1[0], p2[0], p3[0], p4[0]), Math.max(p1[1], p2[1], p3[1], p4[1])];
+  static axialAlignedBoundingBox(rect, transform, output) {
+    const m0 = transform[0];
+    const m1 = transform[1];
+    const m2 = transform[2];
+    const m3 = transform[3];
+    const m4 = transform[4];
+    const m5 = transform[5];
+    const r0 = rect[0];
+    const r1 = rect[1];
+    const r2 = rect[2];
+    const r3 = rect[3];
+    let a0 = m0 * r0 + m4;
+    let a2 = a0;
+    let a1 = m0 * r2 + m4;
+    let a3 = a1;
+    let b0 = m3 * r1 + m5;
+    let b2 = b0;
+    let b1 = m3 * r3 + m5;
+    let b3 = b1;
+    if (m1 !== 0 || m2 !== 0) {
+      const m1r0 = m1 * r0;
+      const m1r2 = m1 * r2;
+      const m2r1 = m2 * r1;
+      const m2r3 = m2 * r3;
+      a0 += m2r1;
+      a3 += m2r1;
+      a1 += m2r3;
+      a2 += m2r3;
+      b0 += m1r0;
+      b3 += m1r0;
+      b1 += m1r2;
+      b2 += m1r2;
+    }
+    output[0] = Math.min(output[0], a0, a1, a2, a3);
+    output[1] = Math.min(output[1], b0, b1, b2, b3);
+    output[2] = Math.max(output[2], a0, a1, a2, a3);
+    output[3] = Math.max(output[3], b0, b1, b2, b3);
   }
   static inverseTransform(m) {
     const d = m[0] * m[3] - m[1] * m[2];
     return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[4] * m[3]) / d, (m[4] * m[1] - m[5] * m[0]) / d];
   }
-  static singularValueDecompose2dScale(m) {
-    const transpose = [m[0], m[2], m[1], m[3]];
-    const a = m[0] * transpose[0] + m[1] * transpose[2];
-    const b = m[0] * transpose[1] + m[1] * transpose[3];
-    const c = m[2] * transpose[0] + m[3] * transpose[2];
-    const d = m[2] * transpose[1] + m[3] * transpose[3];
-    const first = (a + d) / 2;
-    const second = Math.sqrt((a + d) ** 2 - 4 * (a * d - c * b)) / 2;
-    const sx = first + second || 1;
-    const sy = first - second || 1;
-    return [Math.sqrt(sx), Math.sqrt(sy)];
+  static singularValueDecompose2dScale(matrix, output) {
+    const m0 = matrix[0];
+    const m1 = matrix[1];
+    const m2 = matrix[2];
+    const m3 = matrix[3];
+    const a = m0 ** 2 + m1 ** 2;
+    const b = m0 * m2 + m1 * m3;
+    const c = m2 ** 2 + m3 ** 2;
+    const first = (a + c) / 2;
+    const second = Math.sqrt(first ** 2 - (a * c - b ** 2));
+    output[0] = Math.sqrt(first + second || 1);
+    output[1] = Math.sqrt(first - second || 1);
   }
   static normalizeRect(rect) {
     const r = rect.slice(0);
@@ -664,7 +764,7 @@ class util_Util {
   }
 }
 const PDFStringTranslateTable = (/* unused pure expression or super */ null && ([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2d8, 0x2c7, 0x2c6, 0x2d9, 0x2dd, 0x2db, 0x2da, 0x2dc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x2022, 0x2020, 0x2021, 0x2026, 0x2014, 0x2013, 0x192, 0x2044, 0x2039, 0x203a, 0x2212, 0x2030, 0x201e, 0x201c, 0x201d, 0x2018, 0x2019, 0x201a, 0x2122, 0xfb01, 0xfb02, 0x141, 0x152, 0x160, 0x178, 0x17d, 0x131, 0x142, 0x153, 0x161, 0x17e, 0, 0x20ac]));
-function util_stringToPDFString(str) {
+function stringToPDFString(str, keepEscapeSequence = false) {
   if (str[0] >= "\xEF") {
     let encoding;
     if (str[0] === "\xFE" && str[1] === "\xFF") {
@@ -687,19 +787,19 @@ function util_stringToPDFString(str) {
         });
         const buffer = stringToBytes(str);
         const decoded = decoder.decode(buffer);
-        if (!decoded.includes("\x1b")) {
+        if (keepEscapeSequence || !decoded.includes("\x1b")) {
           return decoded;
         }
         return decoded.replaceAll(/\x1b[^\x1b]*(?:\x1b|$)/g, "");
       } catch (ex) {
-        util_warn(`stringToPDFString: "${ex}".`);
+        warn(`stringToPDFString: "${ex}".`);
       }
     }
   }
   const strBuf = [];
   for (let i = 0, ii = str.length; i < ii; i++) {
     const charCode = str.charCodeAt(i);
-    if (charCode === 0x1b) {
+    if (!keepEscapeSequence && charCode === 0x1b) {
       while (++i < ii && str.charCodeAt(i) !== 0x1b) {}
       continue;
     }
@@ -726,6 +826,9 @@ function isArrayEqual(arr1, arr2) {
   return true;
 }
 function getModificationDate(date = new Date()) {
+  if (!(date instanceof Date)) {
+    date = new Date(date);
+  }
   const buffer = [date.getUTCFullYear().toString(), (date.getUTCMonth() + 1).toString().padStart(2, "0"), date.getUTCDate().toString().padStart(2, "0"), date.getUTCHours().toString().padStart(2, "0"), date.getUTCMinutes().toString().padStart(2, "0"), date.getUTCSeconds().toString().padStart(2, "0")];
   return buffer.join("");
 }
@@ -794,33 +897,11 @@ function _isValidExplicitDest(validRef, validName, dest) {
   }
   return true;
 }
+const makeArr = () => [];
+const makeMap = () => new Map();
+const makeObj = () => Object.create(null);
 function MathClamp(v, min, max) {
   return Math.min(Math.max(v, min), max);
-}
-function toHexUtil(arr) {
-  if (Uint8Array.prototype.toHex) {
-    return arr.toHex();
-  }
-  return Array.from(arr, num => util_hexNumbers[num]).join("");
-}
-function toBase64Util(arr) {
-  if (Uint8Array.prototype.toBase64) {
-    return arr.toBase64();
-  }
-  return btoa(bytesToString(arr));
-}
-function fromBase64Util(str) {
-  if (Uint8Array.fromBase64) {
-    return Uint8Array.fromBase64(str);
-  }
-  return stringToBytes(atob(str));
-}
-if (typeof Promise.try !== "function") {
-  Promise.try = function (fn, ...args) {
-    return new Promise(resolve => {
-      resolve(fn(...args));
-    });
-  };
 }
 if (typeof Math.sumPrecise !== "function") {
   Math.sumPrecise = function (numbers) {
@@ -859,61 +940,46 @@ class Cmd {
 const nonSerializable = function nonSerializableClosure() {
   return nonSerializable;
 };
-class primitives_Dict {
+class Dict {
+  __nonSerializable__ = nonSerializable;
+  #map = new Map();
+  objId = null;
+  suppressEncryption = false;
+  xref;
   constructor(xref = null) {
-    this._map = new Map();
     this.xref = xref;
-    this.objId = null;
-    this.suppressEncryption = false;
-    this.__nonSerializable__ = nonSerializable;
   }
   assignXref(newXref) {
     this.xref = newXref;
   }
   get size() {
-    return this._map.size;
+    return this.#map.size;
+  }
+  #getValue(isAsync, key1, key2, key3) {
+    let value = this.#map.get(key1);
+    if (value === undefined && key2 !== undefined) {
+      value = this.#map.get(key2);
+      if (value === undefined && key3 !== undefined) {
+        value = this.#map.get(key3);
+      }
+    }
+    if (value instanceof Ref && this.xref) {
+      return isAsync ? this.xref.fetchAsync(value, this.suppressEncryption) : this.xref.fetch(value, this.suppressEncryption);
+    }
+    return value;
   }
   get(key1, key2, key3) {
-    let value = this._map.get(key1);
-    if (value === undefined && key2 !== undefined) {
-      value = this._map.get(key2);
-      if (value === undefined && key3 !== undefined) {
-        value = this._map.get(key3);
-      }
-    }
-    if (value instanceof primitives_Ref && this.xref) {
-      return this.xref.fetch(value, this.suppressEncryption);
-    }
-    return value;
+    return this.#getValue(false, key1, key2, key3);
   }
   async getAsync(key1, key2, key3) {
-    let value = this._map.get(key1);
-    if (value === undefined && key2 !== undefined) {
-      value = this._map.get(key2);
-      if (value === undefined && key3 !== undefined) {
-        value = this._map.get(key3);
-      }
-    }
-    if (value instanceof primitives_Ref && this.xref) {
-      return this.xref.fetchAsync(value, this.suppressEncryption);
-    }
-    return value;
+    return this.#getValue(true, key1, key2, key3);
   }
   getArray(key1, key2, key3) {
-    let value = this._map.get(key1);
-    if (value === undefined && key2 !== undefined) {
-      value = this._map.get(key2);
-      if (value === undefined && key3 !== undefined) {
-        value = this._map.get(key3);
-      }
-    }
-    if (value instanceof primitives_Ref && this.xref) {
-      value = this.xref.fetch(value, this.suppressEncryption);
-    }
+    let value = this.#getValue(false, key1, key2, key3);
     if (Array.isArray(value)) {
       value = value.slice();
       for (let i = 0, ii = value.length; i < ii; i++) {
-        if (value[i] instanceof primitives_Ref && this.xref) {
+        if (value[i] instanceof Ref && this.xref) {
           value[i] = this.xref.fetch(value[i], this.suppressEncryption);
         }
       }
@@ -921,27 +987,62 @@ class primitives_Dict {
     return value;
   }
   getRaw(key) {
-    return this._map.get(key);
+    return this.#map.get(key);
   }
   getKeys() {
-    return [...this._map.keys()];
+    return this.#map.keys();
   }
   getRawValues() {
-    return [...this._map.values()];
+    return this.#map.values();
+  }
+  getRawEntries() {
+    return this.#map.entries();
   }
   set(key, value) {
-    this._map.set(key, value);
+    this.#map.set(key, value);
+  }
+  setIfNotExists(key, value) {
+    if (!this.has(key)) {
+      this.set(key, value);
+    }
+  }
+  setIfNumber(key, value) {
+    if (typeof value === "number") {
+      this.set(key, value);
+    }
+  }
+  setIfArray(key, value) {
+    if (Array.isArray(value) || ArrayBuffer.isView(value)) {
+      this.set(key, value);
+    }
+  }
+  setIfDefined(key, value) {
+    if (value !== undefined && value !== null) {
+      this.set(key, value);
+    }
+  }
+  setIfName(key, value) {
+    if (typeof value === "string") {
+      this.set(key, Name.get(value));
+    } else if (value instanceof Name) {
+      this.set(key, value);
+    }
+  }
+  setIfDict(key, value) {
+    if (value instanceof Dict) {
+      this.set(key, value);
+    }
   }
   has(key) {
-    return this._map.has(key);
+    return this.#map.has(key);
   }
   *[Symbol.iterator]() {
-    for (const [key, value] of this._map) {
-      yield [key, value instanceof primitives_Ref && this.xref ? this.xref.fetch(value, this.suppressEncryption) : value];
+    for (const [key, value] of this.#map) {
+      yield [key, value instanceof Ref && this.xref ? this.xref.fetch(value, this.suppressEncryption) : value];
     }
   }
   static get empty() {
-    const emptyDict = new primitives_Dict(null);
+    const emptyDict = new Dict(null);
     emptyDict.set = (key, value) => {
       unreachable("Should not call `set` on the empty dictionary.");
     };
@@ -952,55 +1053,53 @@ class primitives_Dict {
     dictArray,
     mergeSubDicts = false
   }) {
-    const mergedDict = new primitives_Dict(xref),
+    const mergedDict = new Dict(xref),
       properties = new Map();
     for (const dict of dictArray) {
-      if (!(dict instanceof primitives_Dict)) {
+      if (!(dict instanceof Dict)) {
         continue;
       }
-      for (const [key, value] of dict._map) {
+      for (const [key, value] of dict.getRawEntries()) {
         let property = properties.get(key);
         if (property === undefined) {
           property = [];
           properties.set(key, property);
-        } else if (!mergeSubDicts || !(value instanceof primitives_Dict)) {
+        } else if (!mergeSubDicts || !(value instanceof Dict)) {
           continue;
         }
         property.push(value);
       }
     }
     for (const [name, values] of properties) {
-      if (values.length === 1 || !(values[0] instanceof primitives_Dict)) {
-        mergedDict._map.set(name, values[0]);
+      if (values.length === 1 || !(values[0] instanceof Dict)) {
+        mergedDict.set(name, values[0]);
         continue;
       }
-      const subDict = new primitives_Dict(xref);
+      const subDict = new Dict(xref);
       for (const dict of values) {
-        for (const [key, value] of dict._map) {
-          if (!subDict._map.has(key)) {
-            subDict._map.set(key, value);
-          }
+        for (const [key, value] of dict.getRawEntries()) {
+          subDict.setIfNotExists(key, value);
         }
       }
       if (subDict.size > 0) {
-        mergedDict._map.set(name, subDict);
+        mergedDict.set(name, subDict);
       }
     }
     properties.clear();
-    return mergedDict.size > 0 ? mergedDict : primitives_Dict.empty;
+    return mergedDict.size > 0 ? mergedDict : Dict.empty;
   }
   clone() {
-    const dict = new primitives_Dict(this.xref);
-    for (const key of this.getKeys()) {
-      dict.set(key, this.getRaw(key));
+    const dict = new Dict(this.xref);
+    for (const [key, value] of this.#map) {
+      dict.set(key, value);
     }
     return dict;
   }
   delete(key) {
-    delete this._map[key];
+    this.#map.delete(key);
   }
 }
-class primitives_Ref {
+class Ref {
   constructor(num, gen) {
     this.num = num;
     this.gen = gen;
@@ -1020,14 +1119,14 @@ class primitives_Ref {
     if (!m || m[1] === "0") {
       return null;
     }
-    return RefCache[str] = new primitives_Ref(parseInt(m[1]), !m[2] ? 0 : parseInt(m[2]));
+    return RefCache[str] = new Ref(parseInt(m[1]), !m[2] ? 0 : parseInt(m[2]));
   }
   static get(num, gen) {
     const key = gen === 0 ? `${num}R` : `${num}R${gen}`;
-    return RefCache[key] ||= new primitives_Ref(num, gen);
+    return RefCache[key] ||= new Ref(num, gen);
   }
 }
-class primitives_RefSet {
+class RefSet {
   constructor(parent = null) {
     this._set = new Set(parent?._set);
   }
@@ -1048,9 +1147,7 @@ class primitives_RefSet {
   }
 }
 class RefSetCache {
-  constructor() {
-    this._map = new Map();
-  }
+  _map = new Map();
   get size() {
     return this._map.size;
   }
@@ -1077,18 +1174,23 @@ class RefSetCache {
   }
   *items() {
     for (const [ref, value] of this._map) {
-      yield [primitives_Ref.fromString(ref), value];
+      yield [Ref.fromString(ref), value];
+    }
+  }
+  *keys() {
+    for (const ref of this._map.keys()) {
+      yield Ref.fromString(ref);
     }
   }
 }
-function primitives_isName(v, name) {
+function isName(v, name) {
   return v instanceof Name && (name === undefined || v.name === name);
 }
 function isCmd(v, cmd) {
   return v instanceof Cmd && (cmd === undefined || v.cmd === cmd);
 }
 function isDict(v, type) {
-  return v instanceof primitives_Dict && (type === undefined || primitives_isName(v.get("Type"), type));
+  return v instanceof Dict && (type === undefined || isName(v.get("Type"), type));
 }
 function isRefsEqual(v1, v2) {
   return v1.num === v2.num && v1.gen === v2.gen;
@@ -1096,7 +1198,7 @@ function isRefsEqual(v1, v2) {
 
 ;// ./src/core/base_stream.js
 
-class base_stream_BaseStream {
+class BaseStream {
   get length() {
     unreachable("Abstract getter `length` accessed");
   }
@@ -1122,6 +1224,9 @@ class base_stream_BaseStream {
     return false;
   }
   get isAsyncDecoder() {
+    return false;
+  }
+  get isImageStream() {
     return false;
   }
   get canAsyncDecodeImageFromBuffer() {
@@ -1178,15 +1283,34 @@ class base_stream_BaseStream {
   getBaseStreams() {
     return null;
   }
+  getOriginalStream() {
+    return this.stream?.getOriginalStream() || this;
+  }
 }
 
 ;// ./src/core/core_utils.js
+/* unused harmony import specifier */ var core_utils_assert;
+/* unused harmony import specifier */ var core_utils_Util;
+/* unused harmony import specifier */ var core_utils_stringToPDFString;
+/* unused harmony import specifier */ var core_utils_objectSize;
+/* unused harmony import specifier */ var core_utils_warn;
+/* unused harmony import specifier */ var core_utils_AnnotationEditorPrefix;
+/* unused harmony import specifier */ var core_utils_makeArr;
+/* unused harmony import specifier */ var core_utils_hexNumbers;
+/* unused harmony import specifier */ var core_utils_RefSet;
+/* unused harmony import specifier */ var core_utils_Dict;
+/* unused harmony import specifier */ var core_utils_Ref;
+/* unused harmony import specifier */ var core_utils_isName;
+/* unused harmony import specifier */ var core_utils_BaseStream;
 
 
 
 const PDF_VERSION_REGEXP = /^[1-9]\.\d$/;
 const MAX_INT_32 = 2 ** 31 - 1;
 const MIN_INT_32 = -(2 ** 31);
+const IDENTITY_MATRIX = (/* unused pure expression or super */ null && ([1, 0, 0, 1, 0, 0]));
+const RESOURCES_KEYS_OPERATOR_LIST = (/* unused pure expression or super */ null && (["ColorSpace", "ExtGState", "Font", "Pattern", "Properties", "Shading", "XObject"]));
+const RESOURCES_KEYS_TEXT_CONTENT = (/* unused pure expression or super */ null && (["ExtGState", "Font", "Properties", "XObject"]));
 function getLookupTableFactory(initializer) {
   let lookup;
   return function () {
@@ -1246,7 +1370,7 @@ async function fetchBinaryData(url) {
   if (!response.ok) {
     throw new Error(`Failed to fetch file "${url}" with "${response.statusText}".`);
   }
-  return new Uint8Array(await response.arrayBuffer());
+  return response.bytes();
 }
 function getInheritableProperty({
   dict,
@@ -1255,8 +1379,8 @@ function getInheritableProperty({
   stopWhenFound = true
 }) {
   let values;
-  const visited = new RefSet();
-  while (dict instanceof Dict && !(dict.objId && visited.has(dict.objId))) {
+  const visited = new core_utils_RefSet();
+  while (dict instanceof core_utils_Dict && !(dict.objId && visited.has(dict.objId))) {
     if (dict.objId) {
       visited.put(dict.objId);
     }
@@ -1272,32 +1396,61 @@ function getInheritableProperty({
   return values;
 }
 function getParentToUpdate(dict, ref, xref) {
-  const visited = new RefSet();
+  const visited = new core_utils_RefSet();
   const firstDict = dict;
   const result = {
     dict: null,
     ref: null
   };
-  while (dict instanceof Dict && !visited.has(ref)) {
+  while (dict instanceof core_utils_Dict && !visited.has(ref)) {
     visited.put(ref);
     if (dict.has("T")) {
       break;
     }
     ref = dict.getRaw("Parent");
-    if (!(ref instanceof Ref)) {
+    if (!(ref instanceof core_utils_Ref)) {
       return result;
     }
     dict = xref.fetch(ref);
   }
-  if (dict instanceof Dict && dict !== firstDict) {
+  if (dict instanceof core_utils_Dict && dict !== firstDict) {
     result.dict = dict;
     result.ref = ref;
   }
   return result;
 }
+function deepCompare(a, b) {
+  if (a === b) {
+    return true;
+  }
+  if (a instanceof core_utils_Dict && b instanceof core_utils_Dict) {
+    if (a.size !== b.size) {
+      return false;
+    }
+    for (const [key, value1] of a.getRawEntries()) {
+      const value2 = b.getRaw(key);
+      if (value2 === undefined || !deepCompare(value1, value2)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) {
+      return false;
+    }
+    for (let i = 0, ii = a.length; i < ii; i++) {
+      if (!deepCompare(a[i], b[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
 const ROMAN_NUMBER_MAP = (/* unused pure expression or super */ null && (["", "C", "CC", "CCC", "CD", "D", "DC", "DCC", "DCCC", "CM", "", "X", "XX", "XXX", "XL", "L", "LX", "LXX", "LXXX", "XC", "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"]));
 function toRomanNumerals(number, lowerCase = false) {
-  assert(Number.isInteger(number) && number > 0, "The number should be a positive integer.");
+  core_utils_assert(Number.isInteger(number) && number > 0, "The number should be a positive integer.");
   const roman = "M".repeat(number / 1000 | 0) + ROMAN_NUMBER_MAP[number % 1000 / 100 | 0] + ROMAN_NUMBER_MAP[10 + (number % 100 / 10 | 0)] + ROMAN_NUMBER_MAP[20 + number % 10];
   return lowerCase ? roman.toLowerCase() : roman;
 }
@@ -1335,7 +1488,7 @@ function lookupRect(arr, fallback) {
   return isNumberArray(arr, 4) ? arr : fallback;
 }
 function lookupNormalRect(arr, fallback) {
-  return isNumberArray(arr, 4) ? Util.normalizeRect(arr) : fallback;
+  return isNumberArray(arr, 4) ? core_utils_Util.normalizeRect(arr) : fallback;
 }
 function parseXFAPath(path) {
   const positionPattern = /(.+)\[(\d+)\]$/;
@@ -1389,7 +1542,7 @@ function _collectJS(entry, xref, list, parents) {
     return;
   }
   let parent = null;
-  if (entry instanceof Ref) {
+  if (entry instanceof core_utils_Ref) {
     if (parents.has(entry)) {
       return;
     }
@@ -1401,18 +1554,18 @@ function _collectJS(entry, xref, list, parents) {
     for (const element of entry) {
       _collectJS(element, xref, list, parents);
     }
-  } else if (entry instanceof Dict) {
-    if (isName(entry.get("S"), "JavaScript")) {
+  } else if (entry instanceof core_utils_Dict) {
+    if (core_utils_isName(entry.get("S"), "JavaScript")) {
       const js = entry.get("JS");
       let code;
-      if (js instanceof BaseStream) {
+      if (js instanceof core_utils_BaseStream) {
         code = js.getString();
       } else if (typeof js === "string") {
         code = js;
       }
-      code &&= stringToPDFString(code).replaceAll("\x00", "");
+      code &&= core_utils_stringToPDFString(code, true).replaceAll("\x00", "");
       if (code) {
-        list.push(code);
+        list.push(code.trim());
       }
     }
     _collectJS(entry.getRaw("Next"), xref, list, parents);
@@ -1431,18 +1584,17 @@ function collectActions(xref, dict, eventType) {
   if (additionalActionsDicts) {
     for (let i = additionalActionsDicts.length - 1; i >= 0; i--) {
       const additionalActions = additionalActionsDicts[i];
-      if (!(additionalActions instanceof Dict)) {
+      if (!(additionalActions instanceof core_utils_Dict)) {
         continue;
       }
-      for (const key of additionalActions.getKeys()) {
+      for (const [key, rawActionDict] of additionalActions.getRawEntries()) {
         const action = eventType[key];
         if (!action) {
           continue;
         }
-        const actionDict = additionalActions.getRaw(key);
-        const parents = new RefSet();
+        const parents = new core_utils_RefSet();
         const list = [];
-        _collectJS(actionDict, xref, list, parents);
+        _collectJS(rawActionDict, xref, list, parents);
         if (list.length > 0) {
           actions[action] = list;
         }
@@ -1451,14 +1603,14 @@ function collectActions(xref, dict, eventType) {
   }
   if (dict.has("A")) {
     const actionDict = dict.get("A");
-    const parents = new RefSet();
+    const parents = new core_utils_RefSet();
     const list = [];
     _collectJS(actionDict, xref, list, parents);
     if (list.length > 0) {
       actions.Action = list;
     }
   }
-  return objectSize(actions) > 0 ? actions : null;
+  return core_utils_objectSize(actions) > 0 ? actions : null;
 }
 const XMLEntities = {
   0x3c: "&lt;",
@@ -1515,7 +1667,7 @@ function validateFontName(fontFamily, mustWarn = false) {
     const re = new RegExp(`[^\\\\]${m[1]}`);
     if (re.test(fontFamily.slice(1, -1))) {
       if (mustWarn) {
-        warn(`FontFamily contains unescaped ${m[1]}: ${fontFamily}.`);
+        core_utils_warn(`FontFamily contains unescaped ${m[1]}: ${fontFamily}.`);
       }
       return false;
     }
@@ -1523,7 +1675,7 @@ function validateFontName(fontFamily, mustWarn = false) {
     for (const ident of fontFamily.split(/[ \t]+/)) {
       if (/^(\d|(-(\d|-)))/.test(ident) || !/^[\w-\\]+$/.test(ident)) {
         if (mustWarn) {
-          warn(`FontFamily contains invalid <custom-ident>: ${fontFamily}.`);
+          core_utils_warn(`FontFamily contains invalid <custom-ident>: ${fontFamily}.`);
         }
         return false;
       }
@@ -1580,29 +1732,30 @@ function getNewAnnotationsMap(annotationStorage) {
   }
   const newAnnotationsByPage = new Map();
   for (const [key, value] of annotationStorage) {
-    if (!key.startsWith(AnnotationEditorPrefix)) {
+    if (!key.startsWith(core_utils_AnnotationEditorPrefix)) {
       continue;
     }
-    let annotations = newAnnotationsByPage.get(value.pageIndex);
-    if (!annotations) {
-      annotations = [];
-      newAnnotationsByPage.set(value.pageIndex, annotations);
-    }
-    annotations.push(value);
+    newAnnotationsByPage.getOrInsertComputed(value.pageIndex, core_utils_makeArr).push(value);
   }
   return newAnnotationsByPage.size > 0 ? newAnnotationsByPage : null;
 }
 function stringToAsciiOrUTF16BE(str) {
+  if (str === null || str === undefined) {
+    return str;
+  }
   return isAscii(str) ? str : stringToUTF16String(str, true);
 }
 function isAscii(str) {
-  return /^[\x00-\x7F]*$/.test(str);
+  if (typeof str !== "string") {
+    return false;
+  }
+  return !str || /^[\x00-\x7F]*$/.test(str);
 }
 function stringToUTF16HexString(str) {
   const buf = [];
   for (let i = 0, ii = str.length; i < ii; i++) {
     const char = str.charCodeAt(i);
-    buf.push(hexNumbers[char >> 8 & 0xff], hexNumbers[char & 0xff]);
+    buf.push(core_utils_hexNumbers[char >> 8 & 0xff], core_utils_hexNumbers[char & 0xff]);
   }
   return buf.join("");
 }
@@ -1979,19 +2132,29 @@ const blackTable1 = [[-1, -1], [-1, -1], [12, ccittEOL], [12, ccittEOL], [-1, -1
 const blackTable2 = [[8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [8, 13], [11, 23], [11, 23], [12, 50], [12, 51], [12, 44], [12, 45], [12, 46], [12, 47], [12, 57], [12, 58], [12, 61], [12, 256], [10, 16], [10, 16], [10, 16], [10, 16], [10, 17], [10, 17], [10, 17], [10, 17], [12, 48], [12, 49], [12, 62], [12, 63], [12, 30], [12, 31], [12, 32], [12, 33], [12, 40], [12, 41], [11, 22], [11, 22], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [8, 14], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 10], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [7, 11], [9, 15], [9, 15], [9, 15], [9, 15], [9, 15], [9, 15], [9, 15], [9, 15], [12, 128], [12, 192], [12, 26], [12, 27], [12, 28], [12, 29], [11, 19], [11, 19], [11, 20], [11, 20], [12, 34], [12, 35], [12, 36], [12, 37], [12, 38], [12, 39], [11, 21], [11, 21], [12, 42], [12, 43], [10, 0], [10, 0], [10, 0], [10, 0], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12], [7, 12]];
 const blackTable3 = [[-1, -1], [-1, -1], [-1, -1], [-1, -1], [6, 9], [6, 8], [5, 7], [5, 7], [4, 6], [4, 6], [4, 6], [4, 6], [4, 5], [4, 5], [4, 5], [4, 5], [3, 1], [3, 1], [3, 1], [3, 1], [3, 1], [3, 1], [3, 1], [3, 1], [3, 4], [3, 4], [3, 4], [3, 4], [3, 4], [3, 4], [3, 4], [3, 4], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2]];
 class CCITTFaxDecoder {
-  constructor(source, options = {}) {
+  constructor(source, options = {
+    K: 0,
+    EndOfLine: false,
+    EncodedByteAlign: false,
+    Columns: 1728,
+    Rows: 0,
+    EndOfBlock: true,
+    BlackIs1: false
+  }) {
     if (typeof source?.next !== "function") {
       throw new Error('CCITTFaxDecoder - invalid "source" parameter.');
     }
     this.source = source;
     this.eof = false;
-    this.encoding = options.K || 0;
-    this.eoline = options.EndOfLine || false;
-    this.byteAlign = options.EncodedByteAlign || false;
-    this.columns = options.Columns || 1728;
-    this.rows = options.Rows || 0;
-    this.eoblock = options.EndOfBlock ?? true;
-    this.black = options.BlackIs1 || false;
+    ({
+      K: this.encoding,
+      EndOfLine: this.eoline,
+      EncodedByteAlign: this.byteAlign,
+      Columns: this.columns,
+      Rows: this.rows,
+      EndOfBlock: this.eoblock,
+      BlackIs1: this.black
+    } = options);
     this.codingLine = new Uint32Array(this.columns + 1);
     this.refLine = new Uint32Array(this.columns + 2);
     this.codingLine[0] = this.columns;
@@ -3301,15 +3464,15 @@ function readSegmentHeader(data, start) {
   let referredToCount = referredFlags >> 5 & 7;
   const retainBits = [referredFlags & 31];
   let position = start + 6;
-  if (referredFlags === 7) {
+  if (referredToCount === 7) {
     referredToCount = readUint32(data, position - 1) & 0x1fffffff;
     position += 3;
-    let bytes = referredToCount + 7 >> 3;
+    let bytes = referredToCount + 8 >> 3;
     retainBits[0] = data[position++];
     while (--bytes > 0) {
       retainBits.push(data[position++]);
     }
-  } else if (referredFlags === 5 || referredFlags === 6) {
+  } else if (referredToCount === 5 || referredToCount === 6) {
     throw new Jbig2Error("invalid referred-to flags");
   }
   segmentHeader.retainBits = retainBits;
@@ -3739,10 +3902,7 @@ class SimpleSegmentVisitor {
       huffmanTables = getSymbolDictionaryHuffmanTables(dictionary, referredSegments, this.customTables);
       huffmanInput = new Reader(data, start, end);
     }
-    let symbols = this.symbols;
-    if (!symbols) {
-      this.symbols = symbols = {};
-    }
+    const symbols = this.symbols ||= {};
     const inputSymbols = [];
     for (const referredSegment of referredSegments) {
       const referredSymbols = symbols[referredSegment];
@@ -3777,10 +3937,7 @@ class SimpleSegmentVisitor {
     this.onImmediateTextRegion(...arguments);
   }
   onPatternDictionary(dictionary, currentSegment, data, start, end) {
-    let patterns = this.patterns;
-    if (!patterns) {
-      this.patterns = patterns = {};
-    }
+    const patterns = this.patterns ||= {};
     const decodingContext = new DecodingContext(data, start, end);
     patterns[currentSegment] = decodePatternDictionary(dictionary.mmr, dictionary.patternWidth, dictionary.patternHeight, dictionary.maxPatternIndex, dictionary.template, decodingContext);
   }
@@ -3795,10 +3952,7 @@ class SimpleSegmentVisitor {
     this.onImmediateHalftoneRegion(...arguments);
   }
   onTables(currentSegment, data, start, end) {
-    let customTables = this.customTables;
-    if (!customTables) {
-      this.customTables = customTables = {};
-    }
+    const customTables = this.customTables ||= {};
     customTables[currentSegment] = decodeTablesSegment(data, start, end);
   }
 }
@@ -3839,10 +3993,7 @@ class HuffmanTreeNode {
     if (shift <= 0) {
       this.children[bit] = new HuffmanTreeNode(line);
     } else {
-      let node = this.children[bit];
-      if (!node) {
-        this.children[bit] = node = new HuffmanTreeNode(null);
-      }
+      const node = this.children[bit] ||= new HuffmanTreeNode(null);
       node.buildTree(line, shift - 1);
     }
   }
@@ -4296,7 +4447,7 @@ function resizeRgbaImage(src, dest, w1, h1, w2, h2, alpha01) {
     }
     const src32 = new Uint32Array(src.buffer);
     const dest32 = new Uint32Array(dest.buffer);
-    const rgbMask = util_FeatureTest.isLittleEndian ? 0x00ffffff : 0xffffff00;
+    const rgbMask = FeatureTest.isLittleEndian ? 0x00ffffff : 0xffffff00;
     for (let i = 0; i < h2; i++) {
       const buf = src32.subarray(Math.floor(i * yRatio) * w1);
       for (let j = 0; j < w2; j++) {
@@ -4324,7 +4475,7 @@ function copyRgbaImage(src, dest, alpha01) {
   if (alpha01 === 1) {
     const src32 = new Uint32Array(src.buffer);
     const dest32 = new Uint32Array(dest.buffer);
-    const rgbMask = util_FeatureTest.isLittleEndian ? 0x00ffffff : 0xffffff00;
+    const rgbMask = FeatureTest.isLittleEndian ? 0x00ffffff : 0xffffff00;
     for (let i = 0, ii = src32.length; i < ii; i++) {
       dest32[i] |= src32[i] & rgbMask;
     }
@@ -4337,15 +4488,34 @@ function copyRgbaImage(src, dest, alpha01) {
     }
   }
 }
+function isDefaultDecodeHelper(decode, expectedLen) {
+  if (!Array.isArray(decode)) {
+    return true;
+  }
+  const decodeLen = decode.length;
+  if (decodeLen < expectedLen) {
+    warn("Decode map length is too short.");
+    return true;
+  }
+  if (decodeLen > expectedLen) {
+    info("Truncating too long decode map.");
+    decode.length = expectedLen;
+  }
+  return false;
+}
 class ColorSpace {
+  static #rgbBuf = new Uint8ClampedArray(3);
   constructor(name, numComps) {
     this.name = name;
     this.numComps = numComps;
   }
-  getRgb(src, srcOffset) {
-    const rgb = new Uint8ClampedArray(3);
-    this.getRgbItem(src, srcOffset, rgb, 0);
-    return rgb;
+  getRgb(src, srcOffset, output = new Uint8ClampedArray(3)) {
+    this.getRgbItem(src, srcOffset, output, 0);
+    return output;
+  }
+  getRgbHex(src, srcOffset) {
+    const buffer = this.getRgb(src, srcOffset, ColorSpace.#rgbBuf);
+    return Util.makeHexColor(buffer[0], buffer[1], buffer[2]);
   }
   getRgbItem(src, srcOffset, dest, destOffset) {
     unreachable("Should not call ColorSpace.getRgbItem");
@@ -4359,8 +4529,8 @@ class ColorSpace {
   isPassthrough(bits) {
     return false;
   }
-  isDefaultDecode(decodeMap, bpc) {
-    return ColorSpace.isDefaultDecode(decodeMap, this.numComps);
+  isDefaultDecode(decode, bpc) {
+    return ColorSpace.isDefaultDecode(decode, this.numComps);
   }
   fillRgb(dest, originalWidth, originalHeight, width, height, actualHeight, bpc, comps, alpha01) {
     const count = originalWidth * originalHeight;
@@ -4420,11 +4590,7 @@ class ColorSpace {
     return shadow(this, "usesZeroToOneRange", true);
   }
   static isDefaultDecode(decode, numComps) {
-    if (!Array.isArray(decode)) {
-      return true;
-    }
-    if (numComps * 2 !== decode.length) {
-      util_warn("The decode map is not the correct length");
+    if (isDefaultDecodeHelper(decode, numComps * 2)) {
       return true;
     }
     for (let i = 0, ii = decode.length; i < ii; i += 2) {
@@ -4487,7 +4653,7 @@ class PatternCS extends ColorSpace {
     super("Pattern", null);
     this.base = baseCS;
   }
-  isDefaultDecode(decodeMap, bpc) {
+  isDefaultDecode(decode, bpc) {
     unreachable("Should not call PatternCS.isDefaultDecode");
   }
 }
@@ -4495,9 +4661,10 @@ class IndexedCS extends ColorSpace {
   constructor(base, highVal, lookup) {
     super("Indexed", 1);
     this.base = base;
+    this.highVal = highVal;
     const length = base.numComps * (highVal + 1);
     this.lookup = new Uint8Array(length);
-    if (lookup instanceof base_stream_BaseStream) {
+    if (lookup instanceof BaseStream) {
       const bytes = lookup.getBytes(length);
       this.lookup.set(bytes);
     } else if (typeof lookup === "string") {
@@ -4509,17 +4676,26 @@ class IndexedCS extends ColorSpace {
     }
   }
   getRgbItem(src, srcOffset, dest, destOffset) {
-    const numComps = this.base.numComps;
-    const start = src[srcOffset] * numComps;
-    this.base.getRgbBuffer(this.lookup, start, 1, dest, destOffset, 8, 0);
+    const {
+      base,
+      highVal,
+      lookup
+    } = this;
+    const start = MathClamp(Math.round(src[srcOffset]), 0, highVal) * base.numComps;
+    base.getRgbBuffer(lookup, start, 1, dest, destOffset, 8, 0);
   }
   getRgbBuffer(src, srcOffset, count, dest, destOffset, bits, alpha01) {
-    const base = this.base;
-    const numComps = base.numComps;
+    const {
+      base,
+      highVal,
+      lookup
+    } = this;
+    const {
+      numComps
+    } = base;
     const outputDelta = base.getOutputLength(numComps, alpha01);
-    const lookup = this.lookup;
     for (let i = 0; i < count; ++i) {
-      const lookupPos = src[srcOffset++] * numComps;
+      const lookupPos = MathClamp(Math.round(src[srcOffset++]), 0, highVal) * numComps;
       base.getRgbBuffer(lookup, lookupPos, 1, dest, destOffset, 8, alpha01);
       destOffset += outputDelta;
     }
@@ -4527,19 +4703,15 @@ class IndexedCS extends ColorSpace {
   getOutputLength(inputLength, alpha01) {
     return this.base.getOutputLength(inputLength * this.base.numComps, alpha01);
   }
-  isDefaultDecode(decodeMap, bpc) {
-    if (!Array.isArray(decodeMap)) {
-      return true;
-    }
-    if (decodeMap.length !== 2) {
-      util_warn("Decode map length is not correct");
+  isDefaultDecode(decode, bpc) {
+    if (isDefaultDecodeHelper(decode, 2)) {
       return true;
     }
     if (!Number.isInteger(bpc) || bpc < 1) {
-      util_warn("Bits per component is not correct");
+      warn("Bits per component is not correct");
       return true;
     }
-    return decodeMap[0] === 0 && decodeMap[1] === (1 << bpc) - 1;
+    return decode[0] === 0 && decode[1] === (1 << bpc) - 1;
   }
 }
 class DeviceGrayCS extends ColorSpace {
@@ -4660,7 +4832,7 @@ class CalGrayCS extends ColorSpace {
       this.XB = this.YB = this.ZB = 0;
     }
     if (this.XB !== 0 || this.YB !== 0 || this.ZB !== 0) {
-      util_warn(`${this.name}, BlackPoint: XB: ${this.XB}, YB: ${this.YB}, ` + `ZB: ${this.ZB}, only default values are supported.`);
+      warn(`${this.name}, BlackPoint: XB: ${this.XB}, YB: ${this.YB}, ` + `ZB: ${this.ZB}, only default values are supported.`);
     }
     if (this.G < 1) {
       info(`Invalid Gamma: ${this.G} for ${this.name}, falling back to default.`);
@@ -4925,7 +5097,7 @@ class LabCS extends ColorSpace {
   getOutputLength(inputLength, alpha01) {
     return inputLength * (3 + alpha01) / 3 | 0;
   }
-  isDefaultDecode(decodeMap, bpc) {
+  isDefaultDecode(decode, bpc) {
     return true;
   }
   get usesZeroToOneRange() {
@@ -4935,38 +5107,64 @@ class LabCS extends ColorSpace {
 
 ;// ./external/qcms/qcms_utils.js
 class QCMS {
-  static _module = null;
+  static #memoryArray = null;
+  static _memory = null;
   static _mustAddAlpha = false;
   static _destBuffer = null;
+  static _destOffset = 0;
+  static _destLength = 0;
+  static _cssColor = "";
+  static _makeHexColor = null;
+  static get _memoryArray() {
+    const array = this.#memoryArray;
+    if (array?.byteLength) {
+      return array;
+    }
+    return this.#memoryArray = new Uint8Array(this._memory.buffer);
+  }
 }
 function copy_result(ptr, len) {
   const {
-    _module,
     _mustAddAlpha,
-    _destBuffer
+    _destBuffer,
+    _destOffset,
+    _destLength,
+    _memoryArray
   } = QCMS;
-  const result = new Uint8Array(_module.memory.buffer, ptr, len);
-  if (result.length === _destBuffer.length) {
-    _destBuffer.set(result);
+  if (len === _destLength) {
+    _destBuffer.set(_memoryArray.subarray(ptr, ptr + len), _destOffset);
     return;
   }
   if (_mustAddAlpha) {
-    for (let i = 0, j = 0, ii = result.length; i < ii; i += 3, j += 4) {
-      _destBuffer[j] = result[i];
-      _destBuffer[j + 1] = result[i + 1];
-      _destBuffer[j + 2] = result[i + 2];
+    for (let i = ptr, ii = ptr + len, j = _destOffset; i < ii; i += 3, j += 4) {
+      _destBuffer[j] = _memoryArray[i];
+      _destBuffer[j + 1] = _memoryArray[i + 1];
+      _destBuffer[j + 2] = _memoryArray[i + 2];
       _destBuffer[j + 3] = 255;
     }
   } else {
-    for (let i = 0, j = 0, ii = result.length; i < ii; i += 3, j += 4) {
-      _destBuffer[j] = result[i];
-      _destBuffer[j + 1] = result[i + 1];
-      _destBuffer[j + 2] = result[i + 2];
+    for (let i = ptr, ii = ptr + len, j = _destOffset; i < ii; i += 3, j += 4) {
+      _destBuffer[j] = _memoryArray[i];
+      _destBuffer[j + 1] = _memoryArray[i + 1];
+      _destBuffer[j + 2] = _memoryArray[i + 2];
     }
   }
 }
 function copy_rgb(ptr) {
-  QCMS._destBuffer.set(new Uint8Array(QCMS._module.memory.buffer, ptr, 3));
+  const {
+    _destBuffer,
+    _destOffset,
+    _memoryArray
+  } = QCMS;
+  _destBuffer[_destOffset] = _memoryArray[ptr];
+  _destBuffer[_destOffset + 1] = _memoryArray[ptr + 1];
+  _destBuffer[_destOffset + 2] = _memoryArray[ptr + 2];
+}
+function make_cssRGB(ptr) {
+  const {
+    _memoryArray
+  } = QCMS;
+  QCMS._cssColor = QCMS._makeHexColor(_memoryArray[ptr], _memoryArray[ptr + 1], _memoryArray[ptr + 2]);
 }
 
 ;// ./external/qcms/qcms.js
@@ -5007,14 +5205,14 @@ function qcms_convert_array(transformer, src) {
   const len0 = WASM_VECTOR_LEN;
   wasm.qcms_convert_array(transformer, ptr0, len0);
 }
-function qcms_convert_one(transformer, src) {
-  wasm.qcms_convert_one(transformer, src);
+function qcms_convert_one(transformer, src, css) {
+  wasm.qcms_convert_one(transformer, src, css);
 }
-function qcms_convert_three(transformer, src1, src2, src3) {
-  wasm.qcms_convert_three(transformer, src1, src2, src3);
+function qcms_convert_three(transformer, src1, src2, src3, css) {
+  wasm.qcms_convert_three(transformer, src1, src2, src3, css);
 }
-function qcms_convert_four(transformer, src1, src2, src3, src4) {
-  wasm.qcms_convert_four(transformer, src1, src2, src3, src4);
+function qcms_convert_four(transformer, src1, src2, src3, src4, css) {
+  wasm.qcms_convert_four(transformer, src1, src2, src3, src4, css);
 }
 function qcms_transformer_from_memory(mem, in_type, intent) {
   const ptr0 = passArray8ToWasm0(mem, wasm.__wbindgen_malloc);
@@ -5085,6 +5283,9 @@ function __wbg_get_imports() {
   imports.wbg.__wbg_copyrgb_d60ce17bb05d9b67 = function (arg0) {
     copy_rgb(arg0 >>> 0);
   };
+  imports.wbg.__wbg_makecssRGB_893bf0cd9fdb302d = function (arg0) {
+    make_cssRGB(arg0 >>> 0);
+  };
   imports.wbg.__wbindgen_init_externref_table = function () {
     const table = wasm.__wbindgen_export_0;
     const offset = table.grow(4);
@@ -5137,9 +5338,6 @@ async function __wbg_init(module_or_path) {
       console.warn('using deprecated parameters for the initialization function; pass a single object instead');
     }
   }
-  if (typeof module_or_path === 'undefined') {
-    module_or_path = new URL('qcms_bg.wasm', import.meta.url);
-  }
   const imports = __wbg_get_imports();
   if (typeof module_or_path === 'string' || typeof Request === 'function' && module_or_path instanceof Request || typeof URL === 'function' && module_or_path instanceof URL) {
     module_or_path = fetch(module_or_path);
@@ -5170,9 +5368,7 @@ class IccColorSpace extends ColorSpace {
   #convertPixel;
   static #useWasm = true;
   static #wasmUrl = null;
-  static #finalizer = new FinalizationRegistry(transformer => {
-    qcms_drop_transformer(transformer);
-  });
+  static #finalizer = null;
   constructor(iccProfile, name, numComps) {
     if (!IccColorSpace.isUsable) {
       throw new Error("No ICC color space support");
@@ -5182,15 +5378,15 @@ class IccColorSpace extends ColorSpace {
     switch (numComps) {
       case 1:
         inType = DataType.Gray8;
-        this.#convertPixel = (src, srcOffset) => qcms_convert_one(this.#transformer, src[srcOffset] * 255);
+        this.#convertPixel = (src, srcOffset, css) => qcms_convert_one(this.#transformer, src[srcOffset] * 255, css);
         break;
       case 3:
         inType = DataType.RGB8;
-        this.#convertPixel = (src, srcOffset) => qcms_convert_three(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255);
+        this.#convertPixel = (src, srcOffset, css) => qcms_convert_three(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255, css);
         break;
       case 4:
         inType = DataType.CMYK;
-        this.#convertPixel = (src, srcOffset) => qcms_convert_four(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255, src[srcOffset + 3] * 255);
+        this.#convertPixel = (src, srcOffset, css) => qcms_convert_four(this.#transformer, src[srcOffset] * 255, src[srcOffset + 1] * 255, src[srcOffset + 2] * 255, src[srcOffset + 3] * 255, css);
         break;
       default:
         throw new Error(`Unsupported number of components: ${numComps}`);
@@ -5199,11 +5395,20 @@ class IccColorSpace extends ColorSpace {
     if (!this.#transformer) {
       throw new Error("Failed to create ICC color space");
     }
+    IccColorSpace.#finalizer ||= new FinalizationRegistry(transformer => {
+      qcms_drop_transformer(transformer);
+    });
     IccColorSpace.#finalizer.register(this, this.#transformer);
   }
+  getRgbHex(src, srcOffset) {
+    this.#convertPixel(src, srcOffset, true);
+    return QCMS._cssColor;
+  }
   getRgbItem(src, srcOffset, dest, destOffset) {
-    QCMS._destBuffer = dest.subarray(destOffset, destOffset + 3);
-    this.#convertPixel(src, srcOffset);
+    QCMS._destBuffer = dest;
+    QCMS._destOffset = destOffset;
+    QCMS._destLength = 3;
+    this.#convertPixel(src, srcOffset, false);
     QCMS._destBuffer = null;
   }
   getRgbBuffer(src, srcOffset, count, dest, destOffset, bits, alpha01) {
@@ -5215,7 +5420,9 @@ class IccColorSpace extends ColorSpace {
       }
     }
     QCMS._mustAddAlpha = alpha01 && dest.buffer === src.buffer;
-    QCMS._destBuffer = dest.subarray(destOffset, destOffset + count * (3 + alpha01));
+    QCMS._destBuffer = dest;
+    QCMS._destOffset = destOffset;
+    QCMS._destLength = count * (3 + alpha01);
     qcms_convert_array(this.#transformer, src);
     QCMS._mustAddAlpha = false;
     QCMS._destBuffer = null;
@@ -5240,15 +5447,17 @@ class IccColorSpace extends ColorSpace {
     if (this.#useWasm) {
       if (this.#wasmUrl) {
         try {
-          this._module = QCMS._module = initSync({
+          this._module = initSync({
             module: fetchSync(`${this.#wasmUrl}qcms_bg.wasm`)
           });
           isUsable = !!this._module;
+          QCMS._memory = this._module.memory;
+          QCMS._makeHexColor = Util.makeHexColor;
         } catch (e) {
-          util_warn(`ICCBased color space: "${e}".`);
+          warn(`ICCBased color space: "${e}".`);
         }
       } else {
-        util_warn("No ICC color space support due to missing `wasmUrl` API option");
+        warn("No ICC color space support due to missing `wasmUrl` API option");
       }
     }
     return shadow(this, "isUsable", isUsable);
@@ -5271,7 +5480,7 @@ class CmykICCBasedCS extends IccColorSpace {
       if (this.#iccUrl) {
         isUsable = true;
       } else {
-        util_warn("No CMYK ICC profile support due to missing `iccUrl` API option");
+        warn("No CMYK ICC profile support due to missing `iccUrl` API option");
       }
     }
     return shadow(this, "isUsable", isUsable);
@@ -5302,7 +5511,7 @@ class ColorSpaceUtils {
       localColorSpaceCache
     };
     let csName, csRef, parsedCS;
-    if (cs instanceof primitives_Ref) {
+    if (cs instanceof Ref) {
       csRef = cs;
       const cachedCS = globalColorSpaceCache.getByRef(csRef) || localColorSpaceCache.getByRef(csRef);
       if (cachedCS) {
@@ -5338,7 +5547,7 @@ class ColorSpaceUtils {
       globalColorSpaceCache
     } = options;
     let csRef;
-    if (cs instanceof primitives_Ref) {
+    if (cs instanceof Ref) {
       csRef = cs;
       const cachedCS = globalColorSpaceCache.getByRef(csRef);
       if (cachedCS) {
@@ -5375,9 +5584,9 @@ class ColorSpaceUtils {
         case "Pattern":
           return new PatternCS(null);
         default:
-          if (resources instanceof primitives_Dict) {
+          if (resources instanceof Dict) {
             const colorSpaces = resources.get("ColorSpace");
-            if (colorSpaces instanceof primitives_Dict) {
+            if (colorSpaces instanceof Dict) {
               const resourcesCS = colorSpaces.get(cs.name);
               if (resourcesCS) {
                 if (resourcesCS instanceof Name) {
@@ -5388,7 +5597,7 @@ class ColorSpaceUtils {
               }
             }
           }
-          util_warn(`Unrecognized ColorSpace: ${cs.name}`);
+          warn(`Unrecognized ColorSpace: ${cs.name}`);
           return this.gray;
       }
     }
@@ -5419,7 +5628,7 @@ class ColorSpaceUtils {
           const matrix = params.getArray("Matrix");
           return new CalRGBCS(whitePoint, blackPoint, gamma, matrix);
         case "ICCBased":
-          const isRef = cs[1] instanceof primitives_Ref;
+          const isRef = cs[1] instanceof Ref;
           if (isRef) {
             const cachedCS = globalColorSpaceCache.getByRef(cs[1]);
             if (cachedCS) {
@@ -5440,7 +5649,7 @@ class ColorSpaceUtils {
               if (ex instanceof MissingDataException) {
                 throw ex;
               }
-              util_warn(`ICCBased color space (${cs[1]}): "${ex}".`);
+              warn(`ICCBased color space (${cs[1]}): "${ex}".`);
             }
           }
           const altRaw = dict.getRaw("Alternate");
@@ -5449,7 +5658,7 @@ class ColorSpaceUtils {
             if (altCS.numComps === numComps) {
               return altCS;
             }
-            util_warn("ICCBased color space: Ignoring incorrect /Alternate entry.");
+            warn("ICCBased color space: Ignoring incorrect /Alternate entry.");
           }
           if (numComps === 1) {
             return this.gray;
@@ -5485,11 +5694,11 @@ class ColorSpaceUtils {
           const range = params.getArray("Range");
           return new LabCS(whitePoint, blackPoint, range);
         default:
-          util_warn(`Unimplemented ColorSpace object: ${mode}`);
+          warn(`Unimplemented ColorSpace object: ${mode}`);
           return this.gray;
       }
     }
-    util_warn(`Unrecognized ColorSpace object: ${cs}`);
+    warn(`Unrecognized ColorSpace object: ${cs}`);
     return this.gray;
   }
   static get gray() {
@@ -5506,7 +5715,7 @@ class ColorSpaceUtils {
       try {
         return shadow(this, "cmyk", new CmykICCBasedCS());
       } catch {
-        util_warn("CMYK fallback: DeviceCMYK");
+        warn("CMYK fallback: DeviceCMYK");
       }
     }
     return shadow(this, "cmyk", new DeviceCmykCS());
@@ -5514,12 +5723,14 @@ class ColorSpaceUtils {
 }
 
 ;// ./src/shared/image_utils.js
+/* unused harmony import specifier */ var image_utils_ImageKind;
+/* unused harmony import specifier */ var image_utils_FeatureTest;
 
 function convertToRGBA(params) {
   switch (params.kind) {
-    case ImageKind.GRAYSCALE_1BPP:
+    case image_utils_ImageKind.GRAYSCALE_1BPP:
       return convertBlackAndWhiteToRGBA(params);
-    case ImageKind.RGB_24BPP:
+    case image_utils_ImageKind.RGB_24BPP:
       return convertRGBToRGBA(params);
   }
   return null;
@@ -5533,31 +5744,32 @@ function convertBlackAndWhiteToRGBA({
   nonBlackColor = 0xffffffff,
   inverseDecode = false
 }) {
-  const black = FeatureTest.isLittleEndian ? 0xff000000 : 0x000000ff;
+  const black = image_utils_FeatureTest.isLittleEndian ? 0xff000000 : 0x000000ff;
   const [zeroMapping, oneMapping] = inverseDecode ? [nonBlackColor, black] : [black, nonBlackColor];
   const widthInSource = width >> 3;
   const widthRemainder = width & 7;
+  const xorMask = zeroMapping ^ oneMapping;
   const srcLength = src.length;
   dest = new Uint32Array(dest.buffer);
   let destPos = 0;
-  for (let i = 0; i < height; i++) {
-    for (const max = srcPos + widthInSource; srcPos < max; srcPos++) {
-      const elem = srcPos < srcLength ? src[srcPos] : 255;
-      dest[destPos++] = elem & 0b10000000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b1000000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b100000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b10000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b1000 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b100 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b10 ? oneMapping : zeroMapping;
-      dest[destPos++] = elem & 0b1 ? oneMapping : zeroMapping;
+  for (let i = 0; i < height; ++i) {
+    for (const max = srcPos + widthInSource; srcPos < max; ++srcPos, destPos += 8) {
+      const elem = src[srcPos];
+      dest[destPos] = zeroMapping ^ -(elem >> 7 & 1) & xorMask;
+      dest[destPos + 1] = zeroMapping ^ -(elem >> 6 & 1) & xorMask;
+      dest[destPos + 2] = zeroMapping ^ -(elem >> 5 & 1) & xorMask;
+      dest[destPos + 3] = zeroMapping ^ -(elem >> 4 & 1) & xorMask;
+      dest[destPos + 4] = zeroMapping ^ -(elem >> 3 & 1) & xorMask;
+      dest[destPos + 5] = zeroMapping ^ -(elem >> 2 & 1) & xorMask;
+      dest[destPos + 6] = zeroMapping ^ -(elem >> 1 & 1) & xorMask;
+      dest[destPos + 7] = zeroMapping ^ -(elem & 1) & xorMask;
     }
     if (widthRemainder === 0) {
       continue;
     }
     const elem = srcPos < srcLength ? src[srcPos++] : 255;
-    for (let j = 0; j < widthRemainder; j++) {
-      dest[destPos++] = elem & 1 << 7 - j ? oneMapping : zeroMapping;
+    for (let j = 0; j < widthRemainder; ++j, ++destPos) {
+      dest[destPos] = zeroMapping ^ -(elem >> 7 - j & 1) & xorMask;
     }
   }
   return {
@@ -5577,31 +5789,32 @@ function convertRGBToRGBA({
   const len = width * height * 3;
   const len32 = len >> 2;
   const src32 = new Uint32Array(src.buffer, srcPos, len32);
-  if (FeatureTest.isLittleEndian) {
+  const alphaMask = image_utils_FeatureTest.isLittleEndian ? 0xff000000 : 0xff;
+  if (image_utils_FeatureTest.isLittleEndian) {
     for (; i < len32 - 2; i += 3, destPos += 4) {
-      const s1 = src32[i];
-      const s2 = src32[i + 1];
-      const s3 = src32[i + 2];
-      dest[destPos] = s1 | 0xff000000;
-      dest[destPos + 1] = s1 >>> 24 | s2 << 8 | 0xff000000;
-      dest[destPos + 2] = s2 >>> 16 | s3 << 16 | 0xff000000;
-      dest[destPos + 3] = s3 >>> 8 | 0xff000000;
+      const s1 = src32[i],
+        s2 = src32[i + 1],
+        s3 = src32[i + 2];
+      dest[destPos] = s1 | alphaMask;
+      dest[destPos + 1] = s1 >>> 24 | s2 << 8 | alphaMask;
+      dest[destPos + 2] = s2 >>> 16 | s3 << 16 | alphaMask;
+      dest[destPos + 3] = s3 >>> 8 | alphaMask;
     }
     for (let j = i * 4, jj = srcPos + len; j < jj; j += 3) {
-      dest[destPos++] = src[j] | src[j + 1] << 8 | src[j + 2] << 16 | 0xff000000;
+      dest[destPos++] = src[j] | src[j + 1] << 8 | src[j + 2] << 16 | alphaMask;
     }
   } else {
     for (; i < len32 - 2; i += 3, destPos += 4) {
-      const s1 = src32[i];
-      const s2 = src32[i + 1];
-      const s3 = src32[i + 2];
-      dest[destPos] = s1 | 0xff;
-      dest[destPos + 1] = s1 << 24 | s2 >>> 8 | 0xff;
-      dest[destPos + 2] = s2 << 16 | s3 >>> 16 | 0xff;
-      dest[destPos + 3] = s3 << 8 | 0xff;
+      const s1 = src32[i],
+        s2 = src32[i + 1],
+        s3 = src32[i + 2];
+      dest[destPos] = s1 | alphaMask;
+      dest[destPos + 1] = s1 << 24 | s2 >>> 8 | alphaMask;
+      dest[destPos + 2] = s2 << 16 | s3 >>> 16 | alphaMask;
+      dest[destPos + 3] = s3 << 8 | alphaMask;
     }
     for (let j = i * 4, jj = srcPos + len; j < jj; j += 3) {
-      dest[destPos++] = src[j] << 24 | src[j + 1] << 16 | src[j + 2] << 8 | 0xff;
+      dest[destPos++] = src[j] << 24 | src[j + 1] << 16 | src[j + 2] << 8 | alphaMask;
     }
   }
   return {
@@ -5610,7 +5823,7 @@ function convertRGBToRGBA({
   };
 }
 function grayToRGBA(src, dest) {
-  if (util_FeatureTest.isLittleEndian) {
+  if (FeatureTest.isLittleEndian) {
     for (let i = 0, ii = src.length; i < ii; i++) {
       dest[i] = src[i] * 0x10101 | 0xff000000;
     }
@@ -5956,7 +6169,7 @@ function decodeScan(data, offset, frame, components, resetInterval, spectralStar
     }
     if (fileMarker.invalid) {
       const partialMsg = mcuToRead > 0 ? "unexpected" : "excessive";
-      util_warn(`decodeScan - ${partialMsg} MCU data, current marker is: ${fileMarker.invalid}`);
+      warn(`decodeScan - ${partialMsg} MCU data, current marker is: ${fileMarker.invalid}`);
       offset = fileMarker.offset;
     }
     if (fileMarker.marker >= 0xffd0 && fileMarker.marker <= 0xffd7) {
@@ -6231,7 +6444,7 @@ function readDataBlock(data, offset) {
   let endOffset = offset + length - 2;
   const fileMarker = findNextFileMarker(data, endOffset, offset);
   if (fileMarker?.invalid) {
-    util_warn("readDataBlock - incorrect length, current marker is: " + fileMarker.invalid);
+    warn("readDataBlock - incorrect length, current marker is: " + fileMarker.invalid);
     endOffset = fileMarker.offset;
   }
   const array = data.subarray(offset, endOffset);
@@ -6500,12 +6713,12 @@ class JpegImage {
             offset += processed;
           } catch (ex) {
             if (ex instanceof DNLMarkerError) {
-              util_warn(`${ex.message} -- attempting to re-parse the JPEG image.`);
+              warn(`${ex.message} -- attempting to re-parse the JPEG image.`);
               return this.parse(data, {
                 dnlScanLines: ex.scanLines
               });
             } else if (ex instanceof EOIMarkerError) {
-              util_warn(`${ex.message} -- ignoring the rest of the image data.`);
+              warn(`${ex.message} -- ignoring the rest of the image data.`);
               break markerLoop;
             }
             throw ex;
@@ -6522,12 +6735,12 @@ class JpegImage {
         default:
           const nextFileMarker = findNextFileMarker(data, offset - 2, offset - 3);
           if (nextFileMarker?.invalid) {
-            util_warn("JpegImage.parse - unexpected data, current marker is: " + nextFileMarker.invalid);
+            warn("JpegImage.parse - unexpected data, current marker is: " + nextFileMarker.invalid);
             offset = nextFileMarker.offset;
             break;
           }
           if (!nextFileMarker || offset >= data.length - 1) {
-            util_warn("JpegImage.parse - reached the end of the image data " + "without finding an EOI marker (0xFFD9).");
+            warn("JpegImage.parse - reached the end of the image data " + "without finding an EOI marker (0xFFD9).");
             break markerLoop;
           }
           throw new JpegError("JpegImage.parse - unknown marker: " + fileMarker.toString(16));
@@ -6736,597 +6949,548 @@ class JpegImage {
 }
 
 ;// ./external/openjpeg/openjpeg.js
-var OpenJPEG = (() => {
+async function OpenJPEG(moduleArg = {}) {
+  var moduleRtn;
+  var Module = moduleArg;
+  var ENVIRONMENT_IS_WEB = true;
+  var ENVIRONMENT_IS_WORKER = false;
+  var arguments_ = [];
+  var thisProgram = "./this.program";
+  var quit_ = (status, toThrow) => {
+    throw toThrow;
+  };
   var _scriptName = import.meta.url;
-  return async function (moduleArg = {}) {
-    var moduleRtn;
-    var Module = moduleArg;
-    var readyPromiseResolve, readyPromiseReject;
-    var readyPromise = new Promise((resolve, reject) => {
-      readyPromiseResolve = resolve;
-      readyPromiseReject = reject;
+  var scriptDirectory = "";
+  var readAsync, readBinary;
+  if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+    try {
+      scriptDirectory = new URL(".", _scriptName).href;
+    } catch {}
+    readAsync = async url => {
+      var response = await fetch(url, {
+        credentials: "same-origin"
+      });
+      if (response.ok) {
+        return response.arrayBuffer();
+      }
+      throw new Error(response.status + " : " + response.url);
+    };
+  } else {}
+  var out = console.log.bind(console);
+  var err = console.error.bind(console);
+  var wasmBinary;
+  var ABORT = false;
+  var EXITSTATUS;
+  var readyPromiseResolve, readyPromiseReject;
+  var wasmMemory;
+  var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAPF64;
+  var HEAP64, HEAPU64;
+  var runtimeInitialized = false;
+  function updateMemoryViews() {
+    var b = wasmMemory.buffer;
+    HEAP8 = new Int8Array(b);
+    HEAP16 = new Int16Array(b);
+    HEAPU8 = new Uint8Array(b);
+    HEAPU16 = new Uint16Array(b);
+    HEAP32 = new Int32Array(b);
+    HEAPU32 = new Uint32Array(b);
+    HEAPF32 = new Float32Array(b);
+    HEAPF64 = new Float64Array(b);
+    HEAP64 = new BigInt64Array(b);
+    HEAPU64 = new BigUint64Array(b);
+  }
+  function preRun() {
+    if (Module["preRun"]) {
+      if (typeof Module["preRun"] == "function") Module["preRun"] = [Module["preRun"]];
+      while (Module["preRun"].length) {
+        addOnPreRun(Module["preRun"].shift());
+      }
+    }
+    callRuntimeCallbacks(onPreRuns);
+  }
+  function initRuntime() {
+    runtimeInitialized = true;
+    wasmExports["s"]();
+  }
+  function postRun() {
+    if (Module["postRun"]) {
+      if (typeof Module["postRun"] == "function") Module["postRun"] = [Module["postRun"]];
+      while (Module["postRun"].length) {
+        addOnPostRun(Module["postRun"].shift());
+      }
+    }
+    callRuntimeCallbacks(onPostRuns);
+  }
+  function abort(what) {
+    Module["onAbort"]?.(what);
+    what = "Aborted(" + what + ")";
+    err(what);
+    ABORT = true;
+    what += ". Build with -sASSERTIONS for more info.";
+    var e = new WebAssembly.RuntimeError(what);
+    readyPromiseReject?.(e);
+    throw e;
+  }
+  var wasmBinaryFile;
+  function getWasmImports() {
+    return {
+      a: wasmImports
+    };
+  }
+  async function createWasm() {
+    function receiveInstance(instance, module) {
+      wasmExports = instance.exports;
+      wasmMemory = wasmExports["r"];
+      updateMemoryViews();
+      assignWasmExports(wasmExports);
+      return wasmExports;
+    }
+    var info = getWasmImports();
+    return new Promise((resolve, reject) => {
+      Module["instantiateWasm"](info, (mod, inst) => {
+        resolve(receiveInstance(mod, inst));
+      });
     });
-    var ENVIRONMENT_IS_WEB = true;
-    var ENVIRONMENT_IS_WORKER = false;
-    var moduleOverrides = Object.assign({}, Module);
-    var arguments_ = [];
-    var thisProgram = "./this.program";
-    var quit_ = (status, toThrow) => {
-      throw toThrow;
-    };
-    var scriptDirectory = "";
-    function locateFile(path) {
-      if (Module["locateFile"]) {
-        return Module["locateFile"](path, scriptDirectory);
-      }
-      return scriptDirectory + path;
+  }
+  class ExitStatus {
+    name = "ExitStatus";
+    constructor(status) {
+      this.message = `Program terminated with exit(${status})`;
+      this.status = status;
     }
-    var readAsync, readBinary;
-    if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
-      if (ENVIRONMENT_IS_WORKER) {
-        scriptDirectory = self.location.href;
-      } else if (typeof document != "undefined" && document.currentScript) {
-        scriptDirectory = document.currentScript.src;
-      }
-      if (_scriptName) {
-        scriptDirectory = _scriptName;
-      }
-      if (scriptDirectory.startsWith("blob:")) {
-        scriptDirectory = "";
-      } else {
-        scriptDirectory = scriptDirectory.slice(0, scriptDirectory.replace(/[?#].*/, "").lastIndexOf("/") + 1);
-      }
-      readAsync = async url => {
-        var response = await fetch(url, {
-          credentials: "same-origin"
-        });
-        if (response.ok) {
-          return response.arrayBuffer();
-        }
-        throw new Error(response.status + " : " + response.url);
-      };
-    } else {}
-    var out = Module["print"] || console.log.bind(console);
-    var err = Module["printErr"] || console.error.bind(console);
-    Object.assign(Module, moduleOverrides);
-    moduleOverrides = null;
-    if (Module["arguments"]) arguments_ = Module["arguments"];
-    if (Module["thisProgram"]) thisProgram = Module["thisProgram"];
-    var wasmBinary = Module["wasmBinary"];
-    var wasmMemory;
-    var ABORT = false;
-    var EXITSTATUS;
-    var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAP64, HEAPU64, HEAPF64;
-    var runtimeInitialized = false;
-    function updateMemoryViews() {
-      var b = wasmMemory.buffer;
-      Module["HEAP8"] = HEAP8 = new Int8Array(b);
-      Module["HEAP16"] = HEAP16 = new Int16Array(b);
-      Module["HEAPU8"] = HEAPU8 = new Uint8Array(b);
-      Module["HEAPU16"] = HEAPU16 = new Uint16Array(b);
-      Module["HEAP32"] = HEAP32 = new Int32Array(b);
-      Module["HEAPU32"] = HEAPU32 = new Uint32Array(b);
-      Module["HEAPF32"] = HEAPF32 = new Float32Array(b);
-      Module["HEAPF64"] = HEAPF64 = new Float64Array(b);
-      Module["HEAP64"] = HEAP64 = new BigInt64Array(b);
-      Module["HEAPU64"] = HEAPU64 = new BigUint64Array(b);
+  }
+  var callRuntimeCallbacks = callbacks => {
+    while (callbacks.length > 0) {
+      callbacks.shift()(Module);
     }
-    function preRun() {
-      if (Module["preRun"]) {
-        if (typeof Module["preRun"] == "function") Module["preRun"] = [Module["preRun"]];
-        while (Module["preRun"].length) {
-          addOnPreRun(Module["preRun"].shift());
-        }
-      }
-      callRuntimeCallbacks(onPreRuns);
+  };
+  var onPostRuns = [];
+  var addOnPostRun = cb => onPostRuns.push(cb);
+  var onPreRuns = [];
+  var addOnPreRun = cb => onPreRuns.push(cb);
+  var noExitRuntime = true;
+  var __abort_js = () => abort("");
+  var runtimeKeepaliveCounter = 0;
+  var __emscripten_runtime_keepalive_clear = () => {
+    noExitRuntime = false;
+    runtimeKeepaliveCounter = 0;
+  };
+  var timers = {};
+  var handleException = e => {
+    if (e instanceof ExitStatus || e == "unwind") {
+      return EXITSTATUS;
     }
-    function initRuntime() {
-      runtimeInitialized = true;
-      wasmExports["t"]();
-    }
-    function postRun() {
-      if (Module["postRun"]) {
-        if (typeof Module["postRun"] == "function") Module["postRun"] = [Module["postRun"]];
-        while (Module["postRun"].length) {
-          addOnPostRun(Module["postRun"].shift());
-        }
-      }
-      callRuntimeCallbacks(onPostRuns);
-    }
-    var runDependencies = 0;
-    var dependenciesFulfilled = null;
-    function addRunDependency(id) {
-      runDependencies++;
-      Module["monitorRunDependencies"]?.(runDependencies);
-    }
-    function removeRunDependency(id) {
-      runDependencies--;
-      Module["monitorRunDependencies"]?.(runDependencies);
-      if (runDependencies == 0) {
-        if (dependenciesFulfilled) {
-          var callback = dependenciesFulfilled;
-          dependenciesFulfilled = null;
-          callback();
-        }
-      }
-    }
-    function abort(what) {
-      Module["onAbort"]?.(what);
-      what = "Aborted(" + what + ")";
-      err(what);
+    quit_(1, e);
+  };
+  var keepRuntimeAlive = () => noExitRuntime || runtimeKeepaliveCounter > 0;
+  var _proc_exit = code => {
+    EXITSTATUS = code;
+    if (!keepRuntimeAlive()) {
+      Module["onExit"]?.(code);
       ABORT = true;
-      what += ". Build with -sASSERTIONS for more info.";
-      var e = new WebAssembly.RuntimeError(what);
-      readyPromiseReject(e);
-      throw e;
     }
-    var wasmBinaryFile;
-    function findWasmBinary() {
-      if (Module["locateFile"]) {
-        return locateFile("openjpeg.wasm");
-      }
-      return new URL("openjpeg.wasm", import.meta.url).href;
-    }
-    function getBinarySync(file) {
-      if (file == wasmBinaryFile && wasmBinary) {
-        return new Uint8Array(wasmBinary);
-      }
-      if (readBinary) {
-        return readBinary(file);
-      }
-      throw "both async and sync fetching of the wasm failed";
-    }
-    async function getWasmBinary(binaryFile) {
-      if (!wasmBinary) {
-        try {
-          var response = await readAsync(binaryFile);
-          return new Uint8Array(response);
-        } catch {}
-      }
-      return getBinarySync(binaryFile);
-    }
-    async function instantiateArrayBuffer(binaryFile, imports) {
+    quit_(code, new ExitStatus(code));
+  };
+  var exitJS = (status, implicit) => {
+    EXITSTATUS = status;
+    _proc_exit(status);
+  };
+  var _exit = exitJS;
+  var maybeExit = () => {
+    if (!keepRuntimeAlive()) {
       try {
-        var binary = await getWasmBinary(binaryFile);
-        var instance = await WebAssembly.instantiate(binary, imports);
-        return instance;
-      } catch (reason) {
-        err(`failed to asynchronously prepare wasm: ${reason}`);
-        abort(reason);
-      }
-    }
-    async function instantiateAsync(binary, binaryFile, imports) {
-      if (!binary && typeof WebAssembly.instantiateStreaming == "function") {
-        try {
-          var response = fetch(binaryFile, {
-            credentials: "same-origin"
-          });
-          var instantiationResult = await WebAssembly.instantiateStreaming(response, imports);
-          return instantiationResult;
-        } catch (reason) {
-          err(`wasm streaming compile failed: ${reason}`);
-          err("falling back to ArrayBuffer instantiation");
-        }
-      }
-      return instantiateArrayBuffer(binaryFile, imports);
-    }
-    function getWasmImports() {
-      return {
-        a: wasmImports
-      };
-    }
-    async function createWasm() {
-      function receiveInstance(instance, module) {
-        wasmExports = instance.exports;
-        wasmMemory = wasmExports["s"];
-        updateMemoryViews();
-        removeRunDependency("wasm-instantiate");
-        return wasmExports;
-      }
-      addRunDependency("wasm-instantiate");
-      function receiveInstantiationResult(result) {
-        return receiveInstance(result["instance"]);
-      }
-      var info = getWasmImports();
-      if (Module["instantiateWasm"]) {
-        return new Promise((resolve, reject) => {
-          Module["instantiateWasm"](info, (mod, inst) => {
-            receiveInstance(mod, inst);
-            resolve(mod.exports);
-          });
-        });
-      }
-      wasmBinaryFile ??= findWasmBinary();
-      try {
-        var result = await instantiateAsync(wasmBinary, wasmBinaryFile, info);
-        var exports = receiveInstantiationResult(result);
-        return exports;
-      } catch (e) {
-        readyPromiseReject(e);
-        return Promise.reject(e);
-      }
-    }
-    class ExitStatus {
-      name = "ExitStatus";
-      constructor(status) {
-        this.message = `Program terminated with exit(${status})`;
-        this.status = status;
-      }
-    }
-    var callRuntimeCallbacks = callbacks => {
-      while (callbacks.length > 0) {
-        callbacks.shift()(Module);
-      }
-    };
-    var onPostRuns = [];
-    var addOnPostRun = cb => onPostRuns.unshift(cb);
-    var onPreRuns = [];
-    var addOnPreRun = cb => onPreRuns.unshift(cb);
-    var noExitRuntime = Module["noExitRuntime"] || true;
-    var __abort_js = () => abort("");
-    var runtimeKeepaliveCounter = 0;
-    var __emscripten_runtime_keepalive_clear = () => {
-      noExitRuntime = false;
-      runtimeKeepaliveCounter = 0;
-    };
-    var timers = {};
-    var handleException = e => {
-      if (e instanceof ExitStatus || e == "unwind") {
-        return EXITSTATUS;
-      }
-      quit_(1, e);
-    };
-    var keepRuntimeAlive = () => noExitRuntime || runtimeKeepaliveCounter > 0;
-    var _proc_exit = code => {
-      EXITSTATUS = code;
-      if (!keepRuntimeAlive()) {
-        Module["onExit"]?.(code);
-        ABORT = true;
-      }
-      quit_(code, new ExitStatus(code));
-    };
-    var exitJS = (status, implicit) => {
-      EXITSTATUS = status;
-      _proc_exit(status);
-    };
-    var _exit = exitJS;
-    var maybeExit = () => {
-      if (!keepRuntimeAlive()) {
-        try {
-          _exit(EXITSTATUS);
-        } catch (e) {
-          handleException(e);
-        }
-      }
-    };
-    var callUserCallback = func => {
-      if (ABORT) {
-        return;
-      }
-      try {
-        func();
-        maybeExit();
+        _exit(EXITSTATUS);
       } catch (e) {
         handleException(e);
       }
-    };
-    var _emscripten_get_now = () => performance.now();
-    var __setitimer_js = (which, timeout_ms) => {
-      if (timers[which]) {
-        clearTimeout(timers[which].id);
-        delete timers[which];
-      }
-      if (!timeout_ms) return 0;
-      var id = setTimeout(() => {
-        delete timers[which];
-        callUserCallback(() => __emscripten_timeout(which, _emscripten_get_now()));
-      }, timeout_ms);
-      timers[which] = {
-        id,
-        timeout_ms
-      };
-      return 0;
-    };
-    function _copy_pixels_1(compG_ptr, nb_pixels) {
-      compG_ptr >>= 2;
-      const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels);
-      const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-      imageData.set(compG);
     }
-    function _copy_pixels_3(compR_ptr, compG_ptr, compB_ptr, nb_pixels) {
-      compR_ptr >>= 2;
-      compG_ptr >>= 2;
-      compB_ptr >>= 2;
-      const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 3);
-      const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
-      const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-      const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
-      for (let i = 0; i < nb_pixels; i++) {
-        imageData[3 * i] = compR[i];
-        imageData[3 * i + 1] = compG[i];
-        imageData[3 * i + 2] = compB[i];
-      }
-    }
-    function _copy_pixels_4(compR_ptr, compG_ptr, compB_ptr, compA_ptr, nb_pixels) {
-      compR_ptr >>= 2;
-      compG_ptr >>= 2;
-      compB_ptr >>= 2;
-      compA_ptr >>= 2;
-      const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
-      const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
-      const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-      const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
-      const compA = HEAP32.subarray(compA_ptr, compA_ptr + nb_pixels);
-      for (let i = 0; i < nb_pixels; i++) {
-        imageData[4 * i] = compR[i];
-        imageData[4 * i + 1] = compG[i];
-        imageData[4 * i + 2] = compB[i];
-        imageData[4 * i + 3] = compA[i];
-      }
-    }
-    var getHeapMax = () => 2147483648;
-    var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
-    var growMemory = size => {
-      var b = wasmMemory.buffer;
-      var pages = (size - b.byteLength + 65535) / 65536 | 0;
-      try {
-        wasmMemory.grow(pages);
-        updateMemoryViews();
-        return 1;
-      } catch (e) {}
-    };
-    var _emscripten_resize_heap = requestedSize => {
-      var oldSize = HEAPU8.length;
-      requestedSize >>>= 0;
-      var maxHeapSize = getHeapMax();
-      if (requestedSize > maxHeapSize) {
-        return false;
-      }
-      for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
-        var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
-        overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
-        var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
-        var replacement = growMemory(newSize);
-        if (replacement) {
-          return true;
-        }
-      }
-      return false;
-    };
-    var ENV = {};
-    var getExecutableName = () => thisProgram || "./this.program";
-    var getEnvStrings = () => {
-      if (!getEnvStrings.strings) {
-        var lang = (typeof navigator == "object" && navigator.languages && navigator.languages[0] || "C").replace("-", "_") + ".UTF-8";
-        var env = {
-          USER: "web_user",
-          LOGNAME: "web_user",
-          PATH: "/",
-          PWD: "/",
-          HOME: "/home/web_user",
-          LANG: lang,
-          _: getExecutableName()
-        };
-        for (var x in ENV) {
-          if (ENV[x] === undefined) delete env[x];else env[x] = ENV[x];
-        }
-        var strings = [];
-        for (var x in env) {
-          strings.push(`${x}=${env[x]}`);
-        }
-        getEnvStrings.strings = strings;
-      }
-      return getEnvStrings.strings;
-    };
-    var stringToAscii = (str, buffer) => {
-      for (var i = 0; i < str.length; ++i) {
-        HEAP8[buffer++] = str.charCodeAt(i);
-      }
-      HEAP8[buffer] = 0;
-    };
-    var _environ_get = (__environ, environ_buf) => {
-      var bufSize = 0;
-      getEnvStrings().forEach((string, i) => {
-        var ptr = environ_buf + bufSize;
-        HEAPU32[__environ + i * 4 >> 2] = ptr;
-        stringToAscii(string, ptr);
-        bufSize += string.length + 1;
-      });
-      return 0;
-    };
-    var _environ_sizes_get = (penviron_count, penviron_buf_size) => {
-      var strings = getEnvStrings();
-      HEAPU32[penviron_count >> 2] = strings.length;
-      var bufSize = 0;
-      strings.forEach(string => bufSize += string.length + 1);
-      HEAPU32[penviron_buf_size >> 2] = bufSize;
-      return 0;
-    };
-    var _fd_close = fd => 52;
-    var INT53_MAX = 9007199254740992;
-    var INT53_MIN = -9007199254740992;
-    var bigintToI53Checked = num => num < INT53_MIN || num > INT53_MAX ? NaN : Number(num);
-    function _fd_seek(fd, offset, whence, newOffset) {
-      offset = bigintToI53Checked(offset);
-      return 70;
-    }
-    var printCharBuffers = [null, [], []];
-    var UTF8Decoder = typeof TextDecoder != "undefined" ? new TextDecoder() : undefined;
-    var UTF8ArrayToString = (heapOrArray, idx = 0, maxBytesToRead = NaN) => {
-      var endIdx = idx + maxBytesToRead;
-      var endPtr = idx;
-      while (heapOrArray[endPtr] && !(endPtr >= endIdx)) ++endPtr;
-      if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
-        return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
-      }
-      var str = "";
-      while (idx < endPtr) {
-        var u0 = heapOrArray[idx++];
-        if (!(u0 & 128)) {
-          str += String.fromCharCode(u0);
-          continue;
-        }
-        var u1 = heapOrArray[idx++] & 63;
-        if ((u0 & 224) == 192) {
-          str += String.fromCharCode((u0 & 31) << 6 | u1);
-          continue;
-        }
-        var u2 = heapOrArray[idx++] & 63;
-        if ((u0 & 240) == 224) {
-          u0 = (u0 & 15) << 12 | u1 << 6 | u2;
-        } else {
-          u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heapOrArray[idx++] & 63;
-        }
-        if (u0 < 65536) {
-          str += String.fromCharCode(u0);
-        } else {
-          var ch = u0 - 65536;
-          str += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
-        }
-      }
-      return str;
-    };
-    var printChar = (stream, curr) => {
-      var buffer = printCharBuffers[stream];
-      if (curr === 0 || curr === 10) {
-        (stream === 1 ? out : err)(UTF8ArrayToString(buffer));
-        buffer.length = 0;
-      } else {
-        buffer.push(curr);
-      }
-    };
-    var UTF8ToString = (ptr, maxBytesToRead) => ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
-    var _fd_write = (fd, iov, iovcnt, pnum) => {
-      var num = 0;
-      for (var i = 0; i < iovcnt; i++) {
-        var ptr = HEAPU32[iov >> 2];
-        var len = HEAPU32[iov + 4 >> 2];
-        iov += 8;
-        for (var j = 0; j < len; j++) {
-          printChar(fd, HEAPU8[ptr + j]);
-        }
-        num += len;
-      }
-      HEAPU32[pnum >> 2] = num;
-      return 0;
-    };
-    function _gray_to_rgba(compG_ptr, nb_pixels) {
-      compG_ptr >>= 2;
-      const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
-      const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-      for (let i = 0; i < nb_pixels; i++) {
-        imageData[4 * i] = imageData[4 * i + 1] = imageData[4 * i + 2] = compG[i];
-        imageData[4 * i + 3] = 255;
-      }
-    }
-    function _graya_to_rgba(compG_ptr, compA_ptr, nb_pixels) {
-      compG_ptr >>= 2;
-      compA_ptr >>= 2;
-      const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
-      const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-      const compA = HEAP32.subarray(compA_ptr, compA_ptr + nb_pixels);
-      for (let i = 0; i < nb_pixels; i++) {
-        imageData[4 * i] = imageData[4 * i + 1] = imageData[4 * i + 2] = compG[i];
-        imageData[4 * i + 3] = compA[i];
-      }
-    }
-    function _jsPrintWarning(message_ptr) {
-      const message = UTF8ToString(message_ptr);
-      (Module.warn || console.warn)(`OpenJPEG: ${message}`);
-    }
-    function _rgb_to_rgba(compR_ptr, compG_ptr, compB_ptr, nb_pixels) {
-      compR_ptr >>= 2;
-      compG_ptr >>= 2;
-      compB_ptr >>= 2;
-      const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
-      const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
-      const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
-      const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
-      for (let i = 0; i < nb_pixels; i++) {
-        imageData[4 * i] = compR[i];
-        imageData[4 * i + 1] = compG[i];
-        imageData[4 * i + 2] = compB[i];
-        imageData[4 * i + 3] = 255;
-      }
-    }
-    function _storeErrorMessage(message_ptr) {
-      const message = UTF8ToString(message_ptr);
-      if (!Module.errorMessages) {
-        Module.errorMessages = message;
-      } else {
-        Module.errorMessages += "\n" + message;
-      }
-    }
-    var wasmImports = {
-      l: __abort_js,
-      k: __emscripten_runtime_keepalive_clear,
-      m: __setitimer_js,
-      g: _copy_pixels_1,
-      f: _copy_pixels_3,
-      e: _copy_pixels_4,
-      n: _emscripten_resize_heap,
-      p: _environ_get,
-      q: _environ_sizes_get,
-      b: _fd_close,
-      o: _fd_seek,
-      c: _fd_write,
-      r: _gray_to_rgba,
-      i: _graya_to_rgba,
-      d: _jsPrintWarning,
-      j: _proc_exit,
-      h: _rgb_to_rgba,
-      a: _storeErrorMessage
-    };
-    var wasmExports = await createWasm();
-    var ___wasm_call_ctors = wasmExports["t"];
-    var _malloc = Module["_malloc"] = wasmExports["u"];
-    var _free = Module["_free"] = wasmExports["v"];
-    var _jp2_decode = Module["_jp2_decode"] = wasmExports["x"];
-    var __emscripten_timeout = wasmExports["y"];
-    function run() {
-      if (runDependencies > 0) {
-        dependenciesFulfilled = run;
-        return;
-      }
-      preRun();
-      if (runDependencies > 0) {
-        dependenciesFulfilled = run;
-        return;
-      }
-      function doRun() {
-        Module["calledRun"] = true;
-        if (ABORT) return;
-        initRuntime();
-        readyPromiseResolve(Module);
-        Module["onRuntimeInitialized"]?.();
-        postRun();
-      }
-      if (Module["setStatus"]) {
-        Module["setStatus"]("Running...");
-        setTimeout(() => {
-          setTimeout(() => Module["setStatus"](""), 1);
-          doRun();
-        }, 1);
-      } else {
-        doRun();
-      }
-    }
-    if (Module["preInit"]) {
-      if (typeof Module["preInit"] == "function") Module["preInit"] = [Module["preInit"]];
-      while (Module["preInit"].length > 0) {
-        Module["preInit"].pop()();
-      }
-    }
-    run();
-    moduleRtn = readyPromise;
-    return moduleRtn;
   };
-})();
+  var callUserCallback = func => {
+    if (ABORT) {
+      return;
+    }
+    try {
+      func();
+      maybeExit();
+    } catch (e) {
+      handleException(e);
+    }
+  };
+  var _emscripten_get_now = () => performance.now();
+  var __setitimer_js = (which, timeout_ms) => {
+    if (timers[which]) {
+      clearTimeout(timers[which].id);
+      delete timers[which];
+    }
+    if (!timeout_ms) return 0;
+    var id = setTimeout(() => {
+      delete timers[which];
+      callUserCallback(() => __emscripten_timeout(which, _emscripten_get_now()));
+    }, timeout_ms);
+    timers[which] = {
+      id,
+      timeout_ms
+    };
+    return 0;
+  };
+  function _copy_pixels_1(compG_ptr, nb_pixels) {
+    compG_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    imageData.set(compG);
+  }
+  function _copy_pixels_3(compR_ptr, compG_ptr, compB_ptr, nb_pixels) {
+    compR_ptr >>= 2;
+    compG_ptr >>= 2;
+    compB_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 3);
+    const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[3 * i] = compR[i];
+      imageData[3 * i + 1] = compG[i];
+      imageData[3 * i + 2] = compB[i];
+    }
+  }
+  function _copy_pixels_4(compR_ptr, compG_ptr, compB_ptr, compA_ptr, nb_pixels) {
+    compR_ptr >>= 2;
+    compG_ptr >>= 2;
+    compB_ptr >>= 2;
+    compA_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
+    const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
+    const compA = HEAP32.subarray(compA_ptr, compA_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[4 * i] = compR[i];
+      imageData[4 * i + 1] = compG[i];
+      imageData[4 * i + 2] = compB[i];
+      imageData[4 * i + 3] = compA[i];
+    }
+  }
+  var getHeapMax = () => 2147483648;
+  var alignMemory = (size, alignment) => Math.ceil(size / alignment) * alignment;
+  var growMemory = size => {
+    var oldHeapSize = wasmMemory.buffer.byteLength;
+    var pages = (size - oldHeapSize + 65535) / 65536 | 0;
+    try {
+      wasmMemory.grow(pages);
+      updateMemoryViews();
+      return 1;
+    } catch (e) {}
+  };
+  var _emscripten_resize_heap = requestedSize => {
+    var oldSize = HEAPU8.length;
+    requestedSize >>>= 0;
+    var maxHeapSize = getHeapMax();
+    if (requestedSize > maxHeapSize) {
+      return false;
+    }
+    for (var cutDown = 1; cutDown <= 4; cutDown *= 2) {
+      var overGrownHeapSize = oldSize * (1 + .2 / cutDown);
+      overGrownHeapSize = Math.min(overGrownHeapSize, requestedSize + 100663296);
+      var newSize = Math.min(maxHeapSize, alignMemory(Math.max(requestedSize, overGrownHeapSize), 65536));
+      var replacement = growMemory(newSize);
+      if (replacement) {
+        return true;
+      }
+    }
+    return false;
+  };
+  var ENV = {};
+  var getExecutableName = () => thisProgram || "./this.program";
+  var getEnvStrings = () => {
+    if (!getEnvStrings.strings) {
+      var lang = (typeof navigator == "object" && navigator.language || "C").replace("-", "_") + ".UTF-8";
+      var env = {
+        USER: "web_user",
+        LOGNAME: "web_user",
+        PATH: "/",
+        PWD: "/",
+        HOME: "/home/web_user",
+        LANG: lang,
+        _: getExecutableName()
+      };
+      for (var x in ENV) {
+        if (ENV[x] === undefined) delete env[x];else env[x] = ENV[x];
+      }
+      var strings = [];
+      for (var x in env) {
+        strings.push(`${x}=${env[x]}`);
+      }
+      getEnvStrings.strings = strings;
+    }
+    return getEnvStrings.strings;
+  };
+  var stringToUTF8Array = (str, heap, outIdx, maxBytesToWrite) => {
+    if (!(maxBytesToWrite > 0)) return 0;
+    var startIdx = outIdx;
+    var endIdx = outIdx + maxBytesToWrite - 1;
+    for (var i = 0; i < str.length; ++i) {
+      var u = str.codePointAt(i);
+      if (u <= 127) {
+        if (outIdx >= endIdx) break;
+        heap[outIdx++] = u;
+      } else if (u <= 2047) {
+        if (outIdx + 1 >= endIdx) break;
+        heap[outIdx++] = 192 | u >> 6;
+        heap[outIdx++] = 128 | u & 63;
+      } else if (u <= 65535) {
+        if (outIdx + 2 >= endIdx) break;
+        heap[outIdx++] = 224 | u >> 12;
+        heap[outIdx++] = 128 | u >> 6 & 63;
+        heap[outIdx++] = 128 | u & 63;
+      } else {
+        if (outIdx + 3 >= endIdx) break;
+        heap[outIdx++] = 240 | u >> 18;
+        heap[outIdx++] = 128 | u >> 12 & 63;
+        heap[outIdx++] = 128 | u >> 6 & 63;
+        heap[outIdx++] = 128 | u & 63;
+        i++;
+      }
+    }
+    heap[outIdx] = 0;
+    return outIdx - startIdx;
+  };
+  var stringToUTF8 = (str, outPtr, maxBytesToWrite) => stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
+  var _environ_get = (__environ, environ_buf) => {
+    var bufSize = 0;
+    var envp = 0;
+    for (var string of getEnvStrings()) {
+      var ptr = environ_buf + bufSize;
+      HEAPU32[__environ + envp >> 2] = ptr;
+      bufSize += stringToUTF8(string, ptr, Infinity) + 1;
+      envp += 4;
+    }
+    return 0;
+  };
+  var lengthBytesUTF8 = str => {
+    var len = 0;
+    for (var i = 0; i < str.length; ++i) {
+      var c = str.charCodeAt(i);
+      if (c <= 127) {
+        len++;
+      } else if (c <= 2047) {
+        len += 2;
+      } else if (c >= 55296 && c <= 57343) {
+        len += 4;
+        ++i;
+      } else {
+        len += 3;
+      }
+    }
+    return len;
+  };
+  var _environ_sizes_get = (penviron_count, penviron_buf_size) => {
+    var strings = getEnvStrings();
+    HEAPU32[penviron_count >> 2] = strings.length;
+    var bufSize = 0;
+    for (var string of strings) {
+      bufSize += lengthBytesUTF8(string) + 1;
+    }
+    HEAPU32[penviron_buf_size >> 2] = bufSize;
+    return 0;
+  };
+  var INT53_MAX = 9007199254740992;
+  var INT53_MIN = -9007199254740992;
+  var bigintToI53Checked = num => num < INT53_MIN || num > INT53_MAX ? NaN : Number(num);
+  function _fd_seek(fd, offset, whence, newOffset) {
+    offset = bigintToI53Checked(offset);
+    return 70;
+  }
+  var printCharBuffers = [null, [], []];
+  var UTF8Decoder = typeof TextDecoder != "undefined" ? new TextDecoder() : undefined;
+  var findStringEnd = (heapOrArray, idx, maxBytesToRead, ignoreNul) => {
+    var maxIdx = idx + maxBytesToRead;
+    if (ignoreNul) return maxIdx;
+    while (heapOrArray[idx] && !(idx >= maxIdx)) ++idx;
+    return idx;
+  };
+  var UTF8ArrayToString = (heapOrArray, idx = 0, maxBytesToRead, ignoreNul) => {
+    var endPtr = findStringEnd(heapOrArray, idx, maxBytesToRead, ignoreNul);
+    if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
+      return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
+    }
+    var str = "";
+    while (idx < endPtr) {
+      var u0 = heapOrArray[idx++];
+      if (!(u0 & 128)) {
+        str += String.fromCharCode(u0);
+        continue;
+      }
+      var u1 = heapOrArray[idx++] & 63;
+      if ((u0 & 224) == 192) {
+        str += String.fromCharCode((u0 & 31) << 6 | u1);
+        continue;
+      }
+      var u2 = heapOrArray[idx++] & 63;
+      if ((u0 & 240) == 224) {
+        u0 = (u0 & 15) << 12 | u1 << 6 | u2;
+      } else {
+        u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heapOrArray[idx++] & 63;
+      }
+      if (u0 < 65536) {
+        str += String.fromCharCode(u0);
+      } else {
+        var ch = u0 - 65536;
+        str += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
+      }
+    }
+    return str;
+  };
+  var printChar = (stream, curr) => {
+    var buffer = printCharBuffers[stream];
+    if (curr === 0 || curr === 10) {
+      (stream === 1 ? out : err)(UTF8ArrayToString(buffer));
+      buffer.length = 0;
+    } else {
+      buffer.push(curr);
+    }
+  };
+  var UTF8ToString = (ptr, maxBytesToRead, ignoreNul) => ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead, ignoreNul) : "";
+  var _fd_write = (fd, iov, iovcnt, pnum) => {
+    var num = 0;
+    for (var i = 0; i < iovcnt; i++) {
+      var ptr = HEAPU32[iov >> 2];
+      var len = HEAPU32[iov + 4 >> 2];
+      iov += 8;
+      for (var j = 0; j < len; j++) {
+        printChar(fd, HEAPU8[ptr + j]);
+      }
+      num += len;
+    }
+    HEAPU32[pnum >> 2] = num;
+    return 0;
+  };
+  function _gray_to_rgba(compG_ptr, nb_pixels) {
+    compG_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[4 * i] = imageData[4 * i + 1] = imageData[4 * i + 2] = compG[i];
+      imageData[4 * i + 3] = 255;
+    }
+  }
+  function _graya_to_rgba(compG_ptr, compA_ptr, nb_pixels) {
+    compG_ptr >>= 2;
+    compA_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    const compA = HEAP32.subarray(compA_ptr, compA_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[4 * i] = imageData[4 * i + 1] = imageData[4 * i + 2] = compG[i];
+      imageData[4 * i + 3] = compA[i];
+    }
+  }
+  function _jsPrintWarning(message_ptr) {
+    const message = UTF8ToString(message_ptr);
+    (Module.warn || console.warn)(`OpenJPEG: ${message}`);
+  }
+  function _rgb_to_rgba(compR_ptr, compG_ptr, compB_ptr, nb_pixels) {
+    compR_ptr >>= 2;
+    compG_ptr >>= 2;
+    compB_ptr >>= 2;
+    const imageData = Module.imageData = new Uint8ClampedArray(nb_pixels * 4);
+    const compR = HEAP32.subarray(compR_ptr, compR_ptr + nb_pixels);
+    const compG = HEAP32.subarray(compG_ptr, compG_ptr + nb_pixels);
+    const compB = HEAP32.subarray(compB_ptr, compB_ptr + nb_pixels);
+    for (let i = 0; i < nb_pixels; i++) {
+      imageData[4 * i] = compR[i];
+      imageData[4 * i + 1] = compG[i];
+      imageData[4 * i + 2] = compB[i];
+      imageData[4 * i + 3] = 255;
+    }
+  }
+  function _storeErrorMessage(message_ptr) {
+    const message = UTF8ToString(message_ptr);
+    if (!Module.errorMessages) {
+      Module.errorMessages = message;
+    } else {
+      Module.errorMessages += "\n" + message;
+    }
+  }
+  var writeArrayToMemory = (array, buffer) => {
+    HEAP8.set(array, buffer);
+  };
+  if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
+  if (Module["print"]) out = Module["print"];
+  if (Module["printErr"]) err = Module["printErr"];
+  if (Module["wasmBinary"]) wasmBinary = Module["wasmBinary"];
+  if (Module["arguments"]) arguments_ = Module["arguments"];
+  if (Module["thisProgram"]) thisProgram = Module["thisProgram"];
+  if (Module["preInit"]) {
+    if (typeof Module["preInit"] == "function") Module["preInit"] = [Module["preInit"]];
+    while (Module["preInit"].length > 0) {
+      Module["preInit"].shift()();
+    }
+  }
+  Module["writeArrayToMemory"] = writeArrayToMemory;
+  var _malloc, _free, _jp2_decode, __emscripten_timeout;
+  function assignWasmExports(wasmExports) {
+    Module["_malloc"] = _malloc = wasmExports["t"];
+    Module["_free"] = _free = wasmExports["u"];
+    Module["_jp2_decode"] = _jp2_decode = wasmExports["v"];
+    __emscripten_timeout = wasmExports["w"];
+  }
+  var wasmImports = {
+    k: __abort_js,
+    j: __emscripten_runtime_keepalive_clear,
+    l: __setitimer_js,
+    f: _copy_pixels_1,
+    e: _copy_pixels_3,
+    d: _copy_pixels_4,
+    m: _emscripten_resize_heap,
+    o: _environ_get,
+    p: _environ_sizes_get,
+    n: _fd_seek,
+    b: _fd_write,
+    q: _gray_to_rgba,
+    h: _graya_to_rgba,
+    c: _jsPrintWarning,
+    i: _proc_exit,
+    g: _rgb_to_rgba,
+    a: _storeErrorMessage
+  };
+  function run() {
+    preRun();
+    function doRun() {
+      Module["calledRun"] = true;
+      if (ABORT) return;
+      initRuntime();
+      readyPromiseResolve?.(Module);
+      Module["onRuntimeInitialized"]?.();
+      postRun();
+    }
+    if (Module["setStatus"]) {
+      Module["setStatus"]("Running...");
+      setTimeout(() => {
+        setTimeout(() => Module["setStatus"](""), 1);
+        doRun();
+      }, 1);
+    } else {
+      doRun();
+    }
+  }
+  var wasmExports;
+  wasmExports = await createWasm();
+  run();
+  if (runtimeInitialized) {
+    moduleRtn = Module;
+  } else {
+    moduleRtn = new Promise((resolve, reject) => {
+      readyPromiseResolve = resolve;
+      readyPromiseReject = reject;
+    });
+  }
+  return moduleRtn;
+}
 /* harmony default export */ const openjpeg = (OpenJPEG);
 ;// ./src/core/stream.js
 
 
-class Stream extends base_stream_BaseStream {
+class Stream extends BaseStream {
   constructor(arrayBuffer, start, length, dict) {
     super();
     this.bytes = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer);
@@ -7352,6 +7516,7 @@ class Stream extends base_stream_BaseStream {
     const pos = this.pos;
     const strEnd = this.end;
     if (!length) {
+      this.pos = strEnd;
       return bytes.subarray(pos, strEnd);
     }
     let end = pos + length;
@@ -7378,6 +7543,9 @@ class Stream extends base_stream_BaseStream {
   }
   makeSubStream(start, length, dict = null) {
     return new Stream(this.bytes.buffer, start, length, dict);
+  }
+  clone() {
+    return new Stream(this.bytes.buffer, this.start, this.end - this.start, this.dict.clone());
   }
 }
 class StringStream extends Stream {
@@ -7431,7 +7599,7 @@ class JpxImage {
       path);
       instance = mod.default();
     } catch (e) {
-      util_warn(`JpxImage#getJsModule: ${e}`);
+      warn(`JpxImage#getJsModule: ${e}`);
     }
     fallbackCallback(instance);
   }
@@ -7443,7 +7611,7 @@ class JpxImage {
           this.#buffer = await fetchBinaryData(`${this.#wasmUrl}${filename}`);
         } else {
           this.#buffer = await this.#handler.sendWithPromise("FetchBinaryData", {
-            type: "wasmFactory",
+            kind: "wasmUrl",
             filename
           });
         }
@@ -7451,7 +7619,7 @@ class JpxImage {
       const results = await WebAssembly.instantiate(this.#buffer, imports);
       return successCallback(results.instance);
     } catch (reason) {
-      util_warn(`JpxImage#instantiateWasm: ${reason}`);
+      warn(`JpxImage#instantiateWasm: ${reason}`);
       this.#getJsModule(fallbackCallback);
       return null;
     } finally {
@@ -7461,7 +7629,8 @@ class JpxImage {
   static async decode(bytes, {
     numComponents = 4,
     isIndexedColormap = false,
-    smaskInData = false
+    smaskInData = false,
+    reducePower = 0
   } = {}) {
     if (!this.#modulePromise) {
       const {
@@ -7473,7 +7642,7 @@ class JpxImage {
         this.#getJsModule(resolve);
       } else {
         promises.push(openjpeg({
-          warn: util_warn,
+          warn: warn,
           instantiateWasm: this.#instantiateWasm.bind(this, resolve)
         }));
       }
@@ -7487,8 +7656,8 @@ class JpxImage {
     try {
       const size = bytes.length;
       ptr = module._malloc(size);
-      module.HEAPU8.set(bytes, ptr);
-      const ret = module._jp2_decode(ptr, size, numComponents > 0 ? numComponents : 0, !!isIndexedColormap, !!smaskInData);
+      module.writeArrayToMemory(bytes, ptr);
+      const ret = module._jp2_decode(ptr, size, numComponents > 0 ? numComponents : 0, !!isIndexedColormap, !!smaskInData, reducePower);
       if (ret) {
         const {
           errorMessages
@@ -7549,18 +7718,18 @@ class JpxImage {
 
 
 
-const pdfjsVersion = "5.1.91";
-const pdfjsBuild = "45cbe8bb0";
+globalThis.pdfjsImageDecoders = {
+  getVerbosityLevel: getVerbosityLevel,
+  Jbig2Error: Jbig2Error,
+  Jbig2Image: Jbig2Image,
+  JpegError: JpegError,
+  JpegImage: JpegImage,
+  JpxError: JpxError,
+  JpxImage: JpxImage,
+  setVerbosityLevel: setVerbosityLevel,
+  VerbosityLevel: VerbosityLevel
+};
 
-var __webpack_exports__Jbig2Error = __webpack_exports__.Jbig2Error;
-var __webpack_exports__Jbig2Image = __webpack_exports__.Jbig2Image;
-var __webpack_exports__JpegError = __webpack_exports__.JpegError;
-var __webpack_exports__JpegImage = __webpack_exports__.JpegImage;
-var __webpack_exports__JpxError = __webpack_exports__.JpxError;
-var __webpack_exports__JpxImage = __webpack_exports__.JpxImage;
-var __webpack_exports__VerbosityLevel = __webpack_exports__.VerbosityLevel;
-var __webpack_exports__getVerbosityLevel = __webpack_exports__.getVerbosityLevel;
-var __webpack_exports__setVerbosityLevel = __webpack_exports__.setVerbosityLevel;
-export { __webpack_exports__Jbig2Error as Jbig2Error, __webpack_exports__Jbig2Image as Jbig2Image, __webpack_exports__JpegError as JpegError, __webpack_exports__JpegImage as JpegImage, __webpack_exports__JpxError as JpxError, __webpack_exports__JpxImage as JpxImage, __webpack_exports__VerbosityLevel as VerbosityLevel, __webpack_exports__getVerbosityLevel as getVerbosityLevel, __webpack_exports__setVerbosityLevel as setVerbosityLevel };
+export { Jbig2Error, Jbig2Image, JpegError, JpegImage, JpxError, JpxImage, VerbosityLevel, getVerbosityLevel, setVerbosityLevel };
 
 //# sourceMappingURL=pdf.image_decoders.mjs.map

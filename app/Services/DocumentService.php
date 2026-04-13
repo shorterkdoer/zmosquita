@@ -1,7 +1,7 @@
 <?php
 namespace App\Services;
 
-use FPDF\FPDF;
+use TCPDF;
 use App\Repositories\MatriculaRepository;
 use App\Repositories\DatosPersonalesRepository;
 use App\Repositories\UserRepository;
@@ -57,7 +57,7 @@ class DocumentService
         }
 
         try {
-            $pdf = new FPDF('P', 'mm', [85.6, 53.98]); // Credit card size
+            $pdf = new TCPDF('P', 'mm', [85.6, 53.98], true, 'UTF-8', false);
             $pdf->AddPage();
 
             // Background design
@@ -67,15 +67,15 @@ class DocumentService
             $pdf->SetFont('Arial', 'B', 14);
             $pdf->SetXY(10, 15);
             $pdf->Cell(65, 5, 'MATRICULA', 0, 0, 'C');
-            $pdf->SetFont('Arial', 'B', 18);
+            $pdf->SetFont('helvetica', 'B', 18);
             $pdf->SetXY(10, 22);
             $pdf->Cell(65, 8, $matricula['matriculaasignada'], 0, 0, 'C');
 
             // Add name
-            $pdf->SetFont('Arial', '', 8);
+            $pdf->SetFont('helvetica', '', 8);
             $pdf->SetXY(5, 35);
             $nombreCompleto = trim(($datos['apellido'] ?? '') . ' ' . ($datos['nombre'] ?? ''));
-            $pdf->Cell(75, 4, mb_strtoupper(utf8_decode($nombreCompleto)), 0, 0, 'C');
+            $pdf->Cell(75, 4, mb_strtoupper($nombreCompleto, 'UTF-8'), 0, 0, 'C');
 
             // Add DNI
             if (!empty($datos['dni'])) {
@@ -84,7 +84,7 @@ class DocumentService
             }
 
             // Add date
-            $pdf->SetFont('Arial', 'I', 6);
+            $pdf->SetFont('helvetica', 'I', 6);
             $pdf->SetXY(5, 48);
             $pdf->Cell(75, 3, 'Vencimiento: ' . date('m/Y', strtotime('+1 year')), 0, 0, 'C');
 
@@ -132,36 +132,36 @@ class DocumentService
         $datos = $this->datosPersonalesRepo->findByUserId($userId);
 
         try {
-            $pdf = new FPDF('P', 'mm', 'A4');
+            $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
             $pdf->AddPage();
 
             // Header
-            $pdf->SetFont('Arial', 'B', 16);
+            $pdf->SetFont('helvetica', 'B', 16);
             $pdf->Cell(0, 10, 'CERTIFICADO DE BUENA FE', 0, 1, 'C');
             $pdf->Ln(5);
 
             // Body text
-            $pdf->SetFont('Arial', '', 12);
+            $pdf->SetFont('helvetica', '', 12);
             $pdf->MultiCell(0, 7, "Por la presente se certifica que el/la profesional:");
 
-            $pdf->SetFont('Arial', 'B', 12);
+            $pdf->SetFont('helvetica', 'B', 12);
             $nombreCompleto = trim(($datos['apellido'] ?? '') . ', ' . ($datos['nombre'] ?? ''));
-            $pdf->Cell(0, 7, mb_strtoupper(utf8_decode($nombreCompleto)), 0, 1, 'C');
+            $pdf->Cell(0, 7, mb_strtoupper($nombreCompleto, 'UTF-8'), 0, 1, 'C');
 
             if (!empty($datos['dni'])) {
-                $pdf->SetFont('Arial', '', 12);
+                $pdf->SetFont('helvetica', '', 12);
                 $pdf->Cell(0, 7, 'DNI: ' . $datos['dni'], 0, 1, 'C');
             }
 
             $pdf->Ln(5);
 
-            $pdf->SetFont('Arial', '', 12);
+            $pdf->SetFont('helvetica', '', 12);
             $pdf->MultiCell(0, 7, "Se encuentra matriculado/a bajo el numero: " . $matricula['matriculaasignada']);
             $pdf->MultiCell(0, 7, "en buen estado y con todas las obligaciones cumplidas.");
 
             $pdf->Ln(10);
 
-            $pdf->SetFont('Arial', '', 10);
+            $pdf->SetFont('helvetica', '', 10);
             $pdf->Cell(0, 5, 'Fecha de emision: ' . date('d/m/Y'), 0, 1, 'C');
 
             $pdf->Output('certificado_' . $matricula['matriculaasignada'] . '.pdf', 'I');
@@ -188,11 +188,11 @@ class DocumentService
     public function generateMembershipReport(array $filters = []): array
     {
         try {
-            $pdf = new FPDF('L', 'mm', 'A4');
+            $pdf = new TCPDF('L', 'mm', 'A4', true, 'UTF-8', false);
             $pdf->AddPage();
 
             // Title
-            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->SetFont('helvetica', 'B', 14);
             $pdf->Cell(0, 10, 'REPORDE DE MATRICULADOS', 0, 1, 'C');
             $pdf->Ln(5);
 
@@ -200,7 +200,7 @@ class DocumentService
             $headers = ['Matricula', 'Apellido', 'Nombre', 'DNI', 'Estado', 'Email'];
             $widths = [25, 35, 35, 25, 30, 50];
 
-            $pdf->SetFont('Arial', 'B', 10);
+            $pdf->SetFont('helvetica', 'B', 10);
             foreach ($headers as $i => $header) {
                 $pdf->Cell($widths[$i], 7, $header, 1, 0, 'C');
             }
@@ -222,11 +222,11 @@ class DocumentService
 
             $rows = $this->matriculaRepo->query($sql);
 
-            $pdf->SetFont('Arial', '', 9);
+            $pdf->SetFont('helvetica', '', 9);
             foreach ($rows as $row) {
                 $pdf->Cell($widths[0], 6, $row['matriculaasignada'] ?? '', 1, 0, 'L');
-                $pdf->Cell($widths[1], 6, utf8_decode($row['apellido'] ?? ''), 1, 0, 'L');
-                $pdf->Cell($widths[2], 6, utf8_decode($row['nombre'] ?? ''), 1, 0, 'L');
+                $pdf->Cell($widths[1], 6, $row['apellido'] ?? '', 1, 0, 'L');
+                $pdf->Cell($widths[2], 6, $row['nombre'] ?? '', 1, 0, 'L');
                 $pdf->Cell($widths[3], 6, $row['dni'] ?? '', 1, 0, 'L');
                 $pdf->Cell($widths[4], 6, $row['estado'] ?? '', 1, 0, 'C');
                 $pdf->Cell($widths[5], 6, $row['email'] ?? '', 1, 0, 'L');
@@ -251,7 +251,7 @@ class DocumentService
     /**
      * Add background design to credential
      */
-    protected function addCredentialBackground(FPDF $pdf): void
+    protected function addCredentialBackground(TCPDF $pdf): void
     {
         // Add border
         $pdf->SetDrawColor(100, 100, 150);

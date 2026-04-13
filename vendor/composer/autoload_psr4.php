@@ -32,7 +32,6 @@ return array(
     'Gregwar\\' => array($vendorDir . '/gregwar/captcha/src/Gregwar'),
     'GrahamCampbell\\ResultType\\' => array($vendorDir . '/graham-campbell/result-type/src'),
     'Google\\Authenticator\\' => array($vendorDir . '/sonata-project/google-authenticator/src'),
-    'Fpdf\\' => array($vendorDir . '/fpdf/fpdf/src/Fpdf'),
     'Foundation\\' => array($baseDir . '/framework/src/Foundation'),
     'Dotenv\\' => array($vendorDir . '/vlucas/phpdotenv/src'),
     'DeepCopy\\' => array($vendorDir . '/myclabs/deep-copy/src/DeepCopy'),

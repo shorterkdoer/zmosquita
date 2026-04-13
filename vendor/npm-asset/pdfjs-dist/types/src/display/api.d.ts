@@ -37,18 +37,13 @@ export type DocumentInitParameters = {
      */
     password?: string | undefined;
     /**
-     * - The PDF file length. It's used for progress
-     * reports and range requests operations.
-     */
-    length?: number | undefined;
-    /**
      * - Allows for using a custom range
      * transport implementation.
      */
     range?: PDFDataRangeTransport | undefined;
     /**
      * - Specify maximum number of bytes fetched
-     * per range request. The default value is {@link DEFAULT_RANGE_CHUNK_SIZE}.
+     * per range request. The default value is 65536 (= 2^16).
      */
     rangeChunkSize?: number | undefined;
     /**
@@ -78,12 +73,6 @@ export type DocumentInitParameters = {
      */
     cMapPacked?: boolean | undefined;
     /**
-     * - The factory that will be used when
-     * reading built-in CMap files.
-     * The default value is {DOMCMapReaderFactory}.
-     */
-    CMapReaderFactory?: Object | undefined;
-    /**
      * - The URL where the predefined ICC profiles are
      * located. Include the trailing slash.
      */
@@ -102,27 +91,14 @@ export type DocumentInitParameters = {
      */
     standardFontDataUrl?: string | undefined;
     /**
-     * - The factory that will be used
-     * when reading the standard font files.
-     * The default value is {DOMStandardFontDataFactory}.
-     */
-    StandardFontDataFactory?: Object | undefined;
-    /**
      * - The URL where the wasm files are located.
      * Include the trailing slash.
      */
     wasmUrl?: string | undefined;
     /**
-     * - The factory that will be used
-     * when reading the wasm files.
-     * The default value is {DOMWasmFactory}.
-     */
-    WasmFactory?: Object | undefined;
-    /**
      * - Enable using the Fetch API in the
-     * worker-thread when reading CMap and standard font files. When `true`,
-     * the `CMapReaderFactory`, `StandardFontDataFactory`, and `WasmFactory`
-     * options are ignored.
+     * worker-thread when reading built-in CMap files, standard font files,
+     * and wasm files. If `true`, the `BinaryDataFactory` option is ignored.
      * The default value is `true` in web environments and `false` in Node.js.
      */
     useWorkerFetch?: boolean | undefined;
@@ -247,10 +223,23 @@ export type DocumentInitParameters = {
      */
     FilterFactory?: Object | undefined;
     /**
+     * - The factory that will be used when
+     * falling back to reading built-in CMap files, standard font files,
+     * and wasm files in the main-thread.
+     * The default value is {DOMBinaryDataFactory}.
+     */
+    BinaryDataFactory?: Object | undefined;
+    /**
      * - Enables hardware acceleration for
      * rendering. The default value is `false`.
      */
     enableHWA?: boolean | undefined;
+    /**
+     * - The pages mapper that will be used to map
+     * page ids and page numbers. It's used when the page order is changed or some
+     * pages are removed, cloned, etc.
+     */
+    pagesMapper?: Object | undefined;
 };
 export type OnProgressParameters = {
     /**
@@ -261,6 +250,11 @@ export type OnProgressParameters = {
      * - Total number of bytes in the PDF file.
      */
     total: number;
+    /**
+     * - Currently loaded percentage, as an integer value
+     * in the [0, 100] range. If `total` is undefined, the percentage is `NaN`.
+     */
+    percent: number;
 };
 /**
  * Page getViewport parameters.
@@ -414,15 +408,24 @@ export type GetAnnotationsParameters = {
  */
 export type RenderParameters = {
     /**
-     * - A 2D context of a DOM
-     * Canvas object.
+     * - A DOM Canvas object. The default
+     * value is the canvas associated with the `canvasContext` parameter if no
+     * value is provided explicitly.
      */
-    canvasContext: CanvasRenderingContext2D;
+    canvas: HTMLCanvasElement | null;
     /**
      * - Rendering viewport obtained by calling
      * the `PDFPageProxy.getViewport` method.
      */
     viewport: PageViewport;
+    /**
+     * - 2D context of a DOM
+     * Canvas object for backwards compatibility; it is recommended to use the
+     * `canvas` parameter instead.
+     * If the context must absolutely be used to render the page, the canvas must
+     * be null.
+     */
+    canvasContext?: CanvasRenderingContext2D | undefined;
     /**
      * - Rendering intent, can be 'display', 'print',
      * or 'any'. The default value is 'display'.
@@ -483,7 +486,22 @@ export type RenderParameters = {
      * - Render the page in editing mode.
      */
     isEditing?: boolean | undefined;
+    /**
+     * - Record the location of images in the PDF
+     */
+    recordImages?: boolean | undefined;
+    /**
+     * - Record the dependencies and bounding
+     * boxes of all PDF operations that render onto the canvas.
+     */
+    recordOperations?: boolean | undefined;
+    /**
+     * - If provided, only
+     * run for which this function returns `true`.
+     */
+    operationsFilter?: OperationsFilter | undefined;
 };
+export type OperationsFilter = (index: number) => boolean;
 /**
  * Page getOperatorList parameters.
  */
@@ -604,12 +622,10 @@ export const build: string;
  *   cross-site Access-Control requests should be made using credentials such
  *   as cookies or authorization headers. The default is `false`.
  * @property {string} [password] - For decrypting password-protected PDFs.
- * @property {number} [length] - The PDF file length. It's used for progress
- *   reports and range requests operations.
  * @property {PDFDataRangeTransport} [range] - Allows for using a custom range
  *   transport implementation.
  * @property {number} [rangeChunkSize] - Specify maximum number of bytes fetched
- *   per range request. The default value is {@link DEFAULT_RANGE_CHUNK_SIZE}.
+ *   per range request. The default value is 65536 (= 2^16).
  * @property {PDFWorker} [worker] - The worker that will be used for loading and
  *   parsing the PDF data.
  * @property {number} [verbosity] - Controls the logging level; the constants
@@ -621,9 +637,6 @@ export const build: string;
  *   located. Include the trailing slash.
  * @property {boolean} [cMapPacked] - Specifies if the Adobe CMaps are binary
  *   packed or not. The default value is `true`.
- * @property {Object} [CMapReaderFactory] - The factory that will be used when
- *   reading built-in CMap files.
- *   The default value is {DOMCMapReaderFactory}.
  * @property {string} [iccUrl] - The URL where the predefined ICC profiles are
  *   located. Include the trailing slash.
  * @property {boolean} [useSystemFonts] - When `true`, fonts that aren't
@@ -633,18 +646,11 @@ export const build: string;
  *   regardless of the environment (to prevent completely broken fonts).
  * @property {string} [standardFontDataUrl] - The URL where the standard font
  *   files are located. Include the trailing slash.
- * @property {Object} [StandardFontDataFactory] - The factory that will be used
- *   when reading the standard font files.
- *   The default value is {DOMStandardFontDataFactory}.
  * @property {string} [wasmUrl] - The URL where the wasm files are located.
  *   Include the trailing slash.
- * @property {Object} [WasmFactory] - The factory that will be used
- *   when reading the wasm files.
- *   The default value is {DOMWasmFactory}.
  * @property {boolean} [useWorkerFetch] - Enable using the Fetch API in the
- *   worker-thread when reading CMap and standard font files. When `true`,
- *   the `CMapReaderFactory`, `StandardFontDataFactory`, and `WasmFactory`
- *   options are ignored.
+ *   worker-thread when reading built-in CMap files, standard font files,
+ *   and wasm files. If `true`, the `BinaryDataFactory` option is ignored.
  *   The default value is `true` in web environments and `false` in Node.js.
  * @property {boolean} [useWasm] - Attempt to use WebAssembly in order to
  *    improve e.g. image decoding performance.
@@ -716,8 +722,15 @@ export const build: string;
  * @property {Object} [FilterFactory] - The factory that will be used to
  *    create SVG filters when rendering some images on the main canvas.
  *    The default value is {DOMFilterFactory}.
+ * @property {Object} [BinaryDataFactory] - The factory that will be used when
+ *   falling back to reading built-in CMap files, standard font files,
+ *   and wasm files in the main-thread.
+ *   The default value is {DOMBinaryDataFactory}.
  * @property {boolean} [enableHWA] - Enables hardware acceleration for
  *   rendering. The default value is `false`.
+ * @property {Object} [pagesMapper] - The pages mapper that will be used to map
+ *   page ids and page numbers. It's used when the page order is changed or some
+ *   pages are removed, cloned, etc.
  */
 /**
  * This is the main entry point for loading a PDF and interacting with it.
@@ -732,14 +745,6 @@ export const build: string;
  * @returns {PDFDocumentLoadingTask}
  */
 export function getDocument(src?: string | URL | TypedArray | ArrayBuffer | DocumentInitParameters): PDFDocumentLoadingTask;
-export const isValidExplicitDest: (dest?: any) => boolean;
-export class LoopbackPort {
-    postMessage(obj: any, transfer: any): void;
-    addEventListener(name: any, listener: any, options?: null): void;
-    removeEventListener(name: any, listener: any): void;
-    terminate(): void;
-    #private;
-}
 /**
  * Abstract class to support range requests file loading.
  *
@@ -759,19 +764,10 @@ export class PDFDataRangeTransport {
     initialData: Uint8Array<ArrayBufferLike> | null;
     progressiveDone: boolean;
     contentDispositionFilename: string;
-    _rangeListeners: any[];
-    _progressListeners: any[];
-    _progressiveReadListeners: any[];
-    _progressiveDoneListeners: any[];
-    _readyCapability: any;
     /**
      * @param {function} listener
      */
     addRangeListener(listener: Function): void;
-    /**
-     * @param {function} listener
-     */
-    addProgressListener(listener: Function): void;
     /**
      * @param {function} listener
      */
@@ -786,11 +782,6 @@ export class PDFDataRangeTransport {
      */
     onDataRange(begin: number, chunk: Uint8Array | null): void;
     /**
-     * @param {number} loaded
-     * @param {number|undefined} total
-     */
-    onDataProgress(loaded: number, total: number | undefined): void;
-    /**
      * @param {Uint8Array|null} chunk
      */
     onDataProgressiveRead(chunk: Uint8Array | null): void;
@@ -802,11 +793,14 @@ export class PDFDataRangeTransport {
      */
     requestDataRange(begin: number, end: number): void;
     abort(): void;
+    #private;
 }
 /**
  * @typedef {Object} OnProgressParameters
  * @property {number} loaded - Currently loaded number of bytes.
  * @property {number} total - Total number of bytes in the PDF file.
+ * @property {number} percent - Currently loaded percentage, as an integer value
+ *   in the [0, 100] range. If `total` is undefined, the percentage is `NaN`.
  */
 /**
  * The loading task controls the operations required to load a PDF document
@@ -814,7 +808,7 @@ export class PDFDataRangeTransport {
  * after which individual pages can be rendered.
  */
 export class PDFDocumentLoadingTask {
-    static "__#55@#docId": number;
+    static "__#private@#docId": number;
     /**
      * @private
      */
@@ -877,6 +871,10 @@ export class PDFDocumentProxy {
     constructor(pdfInfo: any, transport: any);
     _pdfInfo: any;
     _transport: any;
+    /**
+     * @type {PagesMapper} The pages mapper instance.
+     */
+    get pagesMapper(): PagesMapper;
     /**
      * @type {AnnotationStorage} Storage for annotation data in forms.
      */
@@ -972,6 +970,13 @@ export class PDFDocumentProxy {
      *   for mapping named attachments to their content.
      */
     getAttachments(): Promise<any>;
+    /**
+     * @param {Set<number>} types - The annotation types to retrieve.
+     * @param {Set<number>} pageIndexesToSkip
+     * @returns {Promise<Array<Object>>} A promise that is resolved with a list of
+     *   annotations data.
+     */
+    getAnnotationsByType(types: Set<number>, pageIndexesToSkip: Set<number>): Promise<Array<Object>>;
     /**
      * @returns {Promise<Object | null>} A promise that is resolved with
      *   an {Object} with the JavaScript actions:
@@ -1086,6 +1091,30 @@ export class PDFDocumentProxy {
      */
     saveDocument(): Promise<Uint8Array>;
     /**
+     * @typedef {Object} PageInfo
+     * @property {null|Uint8Array} document
+     * @property {Array<Array<number>|number>} [includePages]
+     *  included ranges or indices.
+     * @property {Array<Array<number>|number>} [excludePages]
+     *  excluded ranges or indices.
+     */
+    /**
+     * @param {Array<PageInfo>} pageInfos - The pages to extract.
+     * @returns {Promise<Uint8Array>} A promise that is resolved with a
+     *   {Uint8Array} containing the full data of the saved document.
+     */
+    extractPages(pageInfos: Array<{
+        document: null | Uint8Array;
+        /**
+         * included ranges or indices.
+         */
+        includePages?: (number | number[])[] | undefined;
+        /**
+         * excluded ranges or indices.
+         */
+        excludePages?: (number | number[])[] | undefined;
+    }>): Promise<Uint8Array>;
+    /**
      * @returns {Promise<{ length: number }>} A promise that is resolved when the
      *   document's data is loaded. It is resolved with an {Object} that contains
      *   the `length` property that indicates size of the PDF data in bytes.
@@ -1093,6 +1122,7 @@ export class PDFDocumentProxy {
     getDownloadInfo(): Promise<{
         length: number;
     }>;
+    getRawData(data: any): any;
     /**
      * Cleans up resources allocated by the document on both the main and worker
      * threads.
@@ -1221,10 +1251,16 @@ export class PDFDocumentProxy {
  * Page render parameters.
  *
  * @typedef {Object} RenderParameters
- * @property {CanvasRenderingContext2D} canvasContext - A 2D context of a DOM
- *   Canvas object.
+ * @property {HTMLCanvasElement|null} canvas - A DOM Canvas object. The default
+ *   value is the canvas associated with the `canvasContext` parameter if no
+ *   value is provided explicitly.
  * @property {PageViewport} viewport - Rendering viewport obtained by calling
  *   the `PDFPageProxy.getViewport` method.
+ * @property {CanvasRenderingContext2D} [canvasContext] - 2D context of a DOM
+ *   Canvas object for backwards compatibility; it is recommended to use the
+ *   `canvas` parameter instead.
+ *   If the context must absolutely be used to render the page, the canvas must
+ *   be null.
  * @property {string} [intent] - Rendering intent, can be 'display', 'print',
  *   or 'any'. The default value is 'display'.
  * @property {number} [annotationMode] Controls which annotations are rendered
@@ -1262,6 +1298,16 @@ export class PDFDocumentProxy {
  *   annotation ids with canvases used to render them.
  * @property {PrintAnnotationStorage} [printAnnotationStorage]
  * @property {boolean} [isEditing] - Render the page in editing mode.
+ * @property {boolean} [recordImages] - Record the location of images in the PDF
+ * @property {boolean} [recordOperations] - Record the dependencies and bounding
+ *   boxes of all PDF operations that render onto the canvas.
+ * @property {OperationsFilter} [operationsFilter] - If provided, only
+ *   run for which this function returns `true`.
+ */
+/**
+ * @callback OperationsFilter
+ * @param {number} index - The index of the operation.
+ * @returns {boolean} If false, the operation is ignored.
  */
 /**
  * Page getOperatorList parameters.
@@ -1313,7 +1359,7 @@ export class PDFDocumentProxy {
  * Proxy to a `PDFPage` in the worker thread.
  */
 export class PDFPageProxy {
-    constructor(pageIndex: any, pageInfo: any, transport: any, pdfBug?: boolean);
+    constructor(pageIndex: any, pageInfo: any, transport: any, pagesMapper: any, pdfBug?: boolean);
     _pageIndex: any;
     _pageInfo: any;
     _transport: any;
@@ -1324,6 +1370,13 @@ export class PDFPageProxy {
     objs: PDFObjects;
     _intentStates: Map<any, any>;
     destroyed: boolean;
+    recordedBBoxes: any;
+    imageCoordinates: any;
+    clone(id: any): PDFPageProxy;
+    /**
+     * @param {number} value - The page number to set. First page is 1.
+     */
+    set pageNumber(value: number);
     /**
      * @type {number} Page number of the page. First page is 1.
      */
@@ -1384,7 +1437,7 @@ export class PDFPageProxy {
      * @returns {RenderTask} An object that contains a promise that is
      *   resolved when the page finishes rendering.
      */
-    render({ canvasContext, viewport, intent, annotationMode, transform, background, optionalContentConfigPromise, annotationCanvasMap, pageColors, printAnnotationStorage, isEditing, }: RenderParameters): RenderTask;
+    render({ canvasContext, canvas, viewport, intent, annotationMode, transform, background, optionalContentConfigPromise, annotationCanvasMap, pageColors, printAnnotationStorage, isEditing, recordImages, recordOperations, operationsFilter, }: RenderParameters): RenderTask;
     /**
      * @param {GetOperatorListParameters} params - Page getOperatorList
      *   parameters.
@@ -1467,20 +1520,20 @@ export class PDFPageProxy {
  * @param {PDFWorkerParameters} params - The worker initialization parameters.
  */
 export class PDFWorker {
-    static "__#58@#fakeWorkerId": number;
-    static "__#58@#isWorkerDisabled": boolean;
-    static "__#58@#workerPorts": any;
+    static "__#private@#fakeWorkerId": number;
+    static "__#private@#isWorkerDisabled": boolean;
+    static "__#private@#workerPorts": WeakMap<object, any>;
     /**
      * @param {PDFWorkerParameters} params - The worker initialization parameters.
      * @returns {PDFWorker}
      */
-    static fromPort(params: PDFWorkerParameters): PDFWorker;
+    static create(params: PDFWorkerParameters): PDFWorker;
     /**
      * The current `workerSrc`, when it exists.
      * @type {string}
      */
     static get workerSrc(): string;
-    static get "__#58@#mainThreadWorkerMessageHandler"(): any;
+    static get "__#private@#mainThreadWorkerMessageHandler"(): any;
     static get _setupFakeWorkerGlobal(): any;
     constructor({ name, port, verbosity, }?: {
         name?: null | undefined;
@@ -1490,10 +1543,6 @@ export class PDFWorker {
     name: any;
     destroyed: boolean;
     verbosity: number;
-    _readyCapability: any;
-    _port: any;
-    _webWorker: Worker | null;
-    _messageHandler: MessageHandler | null;
     /**
      * Promise for worker initialization completion.
      * @type {Promise<void>}
@@ -1509,9 +1558,6 @@ export class PDFWorker {
      * @type {MessageHandler}
      */
     get messageHandler(): MessageHandler;
-    _initializeFromPort(port: any): void;
-    _initialize(): void;
-    _setupFakeWorker(): void;
     /**
      * Destroys the worker instance.
      */
@@ -1523,6 +1569,7 @@ export class PDFWorker {
  */
 export class RenderTask {
     constructor(internalRenderTask: any);
+    _internalRenderTask: null;
     /**
      * Callback for incremental rendering -- a function that will be called
      * each time the rendering is paused.  To continue rendering call the
@@ -1557,55 +1604,16 @@ export class RenderTask {
      * @type {boolean}
      */
     get separateAnnots(): boolean;
-    #private;
+    get imageCoordinates(): any;
 }
 /** @type {string} */
 export const version: string;
 import { PageViewport } from "./display_utils.js";
 import { OptionalContentConfig } from "./optional_content_config.js";
 import { PrintAnnotationStorage } from "./annotation_storage.js";
+import { PagesMapper } from "./pages_mapper.js";
 import { AnnotationStorage } from "./annotation_storage.js";
 import { Metadata } from "./metadata.js";
 import { StatTimer } from "./display_utils.js";
-/**
- * A PDF document and page is built of many objects. E.g. there are objects for
- * fonts, images, rendering code, etc. These objects may get processed inside of
- * a worker. This class implements some basic methods to manage these objects.
- */
-declare class PDFObjects {
-    /**
-     * If called *without* callback, this returns the data of `objId` but the
-     * object needs to be resolved. If it isn't, this method throws.
-     *
-     * If called *with* a callback, the callback is called with the data of the
-     * object once the object is resolved. That means, if you call this method
-     * and the object is already resolved, the callback gets called right away.
-     *
-     * @param {string} objId
-     * @param {function} [callback]
-     * @returns {any}
-     */
-    get(objId: string, callback?: Function): any;
-    /**
-     * @param {string} objId
-     * @returns {boolean}
-     */
-    has(objId: string): boolean;
-    /**
-     * @param {string} objId
-     * @returns {boolean}
-     */
-    delete(objId: string): boolean;
-    /**
-     * Resolves the object `objId` with optional `data`.
-     *
-     * @param {string} objId
-     * @param {any} [data]
-     */
-    resolve(objId: string, data?: any): void;
-    clear(): void;
-    [Symbol.iterator](): Generator<any[], void, unknown>;
-    #private;
-}
+import { PDFObjects } from "./pdf_objects.js";
 import { MessageHandler } from "../shared/message_handler.js";
-export {};

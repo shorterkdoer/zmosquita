@@ -1,10 +1,10 @@
 export type AnnotationEditorUIManager = import("./tools.js").AnnotationEditorUIManager;
 export type PageViewport = import("../display_utils.js").PageViewport;
 export type TextAccessibilityManager = import("../../../web/text_accessibility.js").TextAccessibilityManager;
-export type IL10n = import("../../../web/interfaces").IL10n;
 export type AnnotationLayer = import("../annotation_layer.js").AnnotationLayer;
 export type DrawLayer = import("../draw_layer.js").DrawLayer;
-export type StructTreeLayerBuilder = any;
+export type StructTreeLayerBuilder = import("../../../web/struct_tree_layer_builder.js").StructTreeLayerBuilder;
+export type L10n = import("../../../web/l10n.js").L10n;
 export type AnnotationEditorLayerOptions = {
     mode: Object;
     div: HTMLDivElement;
@@ -13,7 +13,7 @@ export type AnnotationEditorLayerOptions = {
     enabled: boolean;
     accessibilityManager?: import("../../../web/text_accessibility.js").TextAccessibilityManager | undefined;
     pageIndex: number;
-    l10n: IL10n;
+    l10n: L10n;
     annotationLayer?: import("../annotation_layer.js").AnnotationLayer | undefined;
     textLayer?: HTMLDivElement | undefined;
     drawLayer: DrawLayer;
@@ -31,7 +31,7 @@ export type RenderEditorLayerOptions = {
  * @property {boolean} enabled
  * @property {TextAccessibilityManager} [accessibilityManager]
  * @property {number} pageIndex
- * @property {IL10n} l10n
+ * @property {L10n} l10n
  * @property {AnnotationLayer} [annotationLayer]
  * @property {HTMLDivElement} [textLayer]
  * @property {DrawLayer} drawLayer
@@ -46,7 +46,7 @@ export type RenderEditorLayerOptions = {
  */
 export class AnnotationEditorLayer {
     static _initialized: boolean;
-    static "__#34@#editorTypes": Map<number, typeof FreeTextEditor | typeof HighlightEditor | typeof InkEditor | typeof SignatureEditor | typeof StampEditor>;
+    static "__#private@#editorTypes": Map<number, typeof FreeTextEditor | typeof HighlightEditor | typeof InkEditor | typeof SignatureEditor | typeof StampEditor>;
     /**
      * @param {AnnotationEditorLayerOptions} options
      */
@@ -55,14 +55,14 @@ export class AnnotationEditorLayer {
     div: HTMLDivElement;
     viewport: import("../display_utils.js").PageViewport;
     drawLayer: import("../draw_layer.js").DrawLayer;
-    _structTree: any;
+    _structTree: import("../../../web/struct_tree_layer_builder.js").StructTreeLayerBuilder;
     get isEmpty(): boolean;
     get isInvisible(): boolean;
     /**
      * Update the toolbar if it's required to reflect the tool currently used.
-     * @param {number} mode
+     * @param {Object} options
      */
-    updateToolbar(mode: number): void;
+    updateToolbar(options: Object): void;
     /**
      * The mode has changed: it must be updated.
      * @param {number} mode
@@ -111,7 +111,7 @@ export class AnnotationEditorLayer {
     remove(editor: AnnotationEditor): void;
     /**
      * An editor can have a different parent, for example after having
-     * being dragged and droped from a page to another.
+     * being dragged and dropped from a page to another.
      * @param {AnnotationEditor} editor
      */
     changeParent(editor: AnnotationEditor): void;
@@ -131,25 +131,21 @@ export class AnnotationEditorLayer {
      * @param {AnnotationEditor} editor
      */
     addUndoableEditor(editor: AnnotationEditor): void;
-    /**
-     * Get an id for an editor.
-     * @returns {string}
-     */
-    getNextId(): string;
+    getEditorByUID(uid: any): any;
     combinedSignal(ac: any): AbortSignal;
     canCreateNewEmptyEditor(): boolean | undefined;
     /**
      * Paste some content into a new editor.
-     * @param {number} mode
+     * @param {Object} options
      * @param {Object} params
      */
-    pasteEditor(mode: number, params: Object): Promise<void>;
+    pasteEditor(options: Object, params: Object): Promise<void>;
     /**
      * Create a new editor
      * @param {Object} data
-     * @returns {AnnotationEditor | null}
+     * @returns {Promise<AnnotationEditor | null>}
      */
-    deserialize(data: Object): AnnotationEditor | null;
+    deserialize(data: Object): Promise<AnnotationEditor | null>;
     /**
      * Create and add a new editor.
      * @param {PointerEvent} event
@@ -158,6 +154,7 @@ export class AnnotationEditorLayer {
      * @returns {AnnotationEditor}
      */
     createAndAddNewEditor(event: PointerEvent, isCentered: boolean, data?: {}): AnnotationEditor;
+    get boundingClientRect(): DOMRect;
     /**
      * Create and add a new editor.
      */
@@ -208,7 +205,7 @@ export class AnnotationEditorLayer {
      * Render the main editor.
      * @param {RenderEditorLayerOptions} parameters
      */
-    render({ viewport }: RenderEditorLayerOptions): void;
+    render({ viewport }: RenderEditorLayerOptions): Promise<void>;
     /**
      * Update the main editor.
      * @param {RenderEditorLayerOptions} parameters

@@ -26,6 +26,8 @@ export class StampEditor extends AnnotationEditor {
     mlGuessAltText(imageData?: null, updateAltTextData?: boolean): Promise<any>;
     /** @inheritdoc */
     onceAdded(focus: any): void;
+    /** @inheritdoc */
+    get toolbarButtons(): (string | object)[][];
     setCanvas(annotationElementId: any, canvas: any): void;
     onScaleChanging(): void;
     copyCanvas(maxDataDimension: any, maxPreviewDimension: any, createImageData?: boolean): {
@@ -35,7 +37,7 @@ export class StampEditor extends AnnotationEditor {
         imageData: {
             width: any;
             height: any;
-            data: Uint8ClampedArray<ArrayBufferLike>;
+            data: ImageDataArray;
         } | null;
     };
     /** @inheritdoc */

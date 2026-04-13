@@ -4,7 +4,7 @@
 namespace App\Core\Helpers;
 use Exception;
 use Imagick;
-use Fpdf\FPDF;
+use TCPDF;
 
 //require_once 'fpdf/fpdf.php';
 
@@ -21,7 +21,7 @@ class ExpedienteBuilder
 
     public function emitirPDF(string $nombreArchivo = 'expediente_final.pdf'): void
     {
-        $pdf = new FPDF();
+        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
 
         foreach ($this->archivos as $archivo) {
             $ext = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
