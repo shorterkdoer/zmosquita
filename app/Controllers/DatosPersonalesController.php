@@ -1025,7 +1025,7 @@ public function generarPDF(Request $request, array $params): void
         $logoPath = $_SESSION['directoriobase'] .'/public/img/Logocertificadomatriculacion.png';
 
 
-        $pdf = new FPDI('P', 'mm', 'A4');
+        $pdf = new Fpdi('P', 'mm', 'A4');
         $pdf->AddPage();
         $pdf->SetAutoPageBreak(false); // para posicionamiento absoluto cómodo
 
@@ -1150,7 +1150,7 @@ public function generarPDF(Request $request, array $params): void
     
     }
     
-    public static function generarcredenciales(request $request, array $params): void
+    public function generarcredenciales(request $request, array $params): void
         {
             $id = ($params[0] ?? '');
         if (session_status() === PHP_SESSION_NONE) {

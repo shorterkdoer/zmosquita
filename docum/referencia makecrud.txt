@@ -1,0 +1,52 @@
+Resumen de la utilidad makecrud                                                                                                                                            
+                                                                                                                                                                             
+  He creado una herramienta CLI completa para generar CRUDs desde archivos SQL. Aquí está el resumen:                                                                        
+                                                                                                                                                                             
+  Uso                                                                                                                                                                        
+                                                                                                                                                                             
+  # Mostrar ayuda                                                                                                                                                            
+  php makecrud --help                                                                                                                                                        
+                                                                                                                                                                             
+  # Listar archivos SQL disponibles                                                                                                                                          
+  php makecrud --list                                                                                                                                                        
+                                                                                                                                                                             
+  # Generar CRUD desde archivo SQL                                                                                                                                           
+  php makecrud <archivo_sql>                                                                                                                                                 
+                                                                                                                                                                             
+  Características                                                                                                                                                            
+                                                                                                                                                                             
+  1. Parseo de SQL: Analiza archivos CREATE TABLE desde /config/datadef/                                                                                                     
+  2. Detección automática:                                                                                                                                                   
+    - Primary keys                                                                                                                                                           
+    - Auto_increment                                                                                                                                                         
+    - Foreign keys (campos que terminan en _id)                                                                                                                              
+    - Tipos de datos (mapeados a inputs HTML apropiados)                                                                                                                     
+  3. Archivos generados:                                                                                                                                                     
+    - app/Models/{Model}.php - Modelo con tabla y PK                                                                                                                         
+    - app/Repositories/{Model}Repository.php - Repository con métodos CRUD                                                                                                   
+    - app/Services/{Model}Service.php - Service con validaciones                                                                                                             
+    - app/Controllers/{Model}Controller.php - Controller con métodos index, create, store, edit, update, vista, delete                                                       
+    - config/cruds/{entidad}/ - Configuraciones para el sistema de CRUDs unificado                                                                                           
+    - Rutas agregadas automáticamente a config/routes.php                                                                                                                    
+                                                                                                                                                                             
+  Ejemplo de archivo SQL                                                                                                                                                     
+                                                                                                                                                                             
+  -- /config/datadef/departamentos.sql                                                                                                                                       
+  CREATE TABLE `departamentos` (                                                                                                                                             
+    `id` int(11) NOT NULL AUTO_INCREMENT,                                                                                                                                    
+    `nombre` varchar(100) NOT NULL,                                                                                                                                          
+    `cargo_id` int(11) NOT NULL,                                                                                                                                             
+    `descripcion` text,                                                                                                                                                      
+    `activo` tinyint(1) DEFAULT 1,                                                                                                                                           
+    PRIMARY KEY (`id`)                                                                                                                                                       
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;                                                                                                                                   
+                                                                                                                                                                             
+  URLs generadas                                                                                                                                                             
+                                                                                                                                                                             
+  - GET /{entidad} - Listar registros                                                                                                                                        
+  - GET /{entidad}/create - Formulario crear                                                                                                                                 
+  - POST /{entidad}/store - Guardar nuevo                                                                                                                                    
+  - GET /{entidad}/edit/{id} - Formulario editar                                                                                                                             
+  - POST /{entidad}/update/{id} - Actualizar                                                                                                                                 
+  - GET /{entidad}/vista/{id} - Confirmar eliminar                                                                                                                           
+  - POST /{entidad}/delete/{id} - Eliminar   

@@ -7,8 +7,13 @@ include_once $_SESSION['directoriobase'] . '/views/cruds/mailhtml.inc.php';
 $rowcnt = 0;
 ?>
 
-<form action="<?= $this->e($cfg['url_action']) ?>" method="<?= strtoupper($this->e($cfg['method'] ?? 'POST')) ?>" 
+<form action="<?= $this->e($cfg['url_action']) ?>" method="<?= strtoupper($this->e($cfg['method'] ?? 'POST')) ?>"
     class="<?= $this->e($style['class_form']) ?>" enctype="multipart/form-data">
+
+    <?php
+    use Foundation\Core\CSRF;
+    echo CSRF::tokenField();
+    ?>
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -23,12 +28,11 @@ $rowcnt = 0;
 <?php foreach ($fields as $key => $f): 
     $rowcnt++;
     $bgClass = ($rowcnt % 2 === 0) ? 'bg-white' : 'bg-light';
-        $zzhidden = $f['hidden'] ?? false;
 
     // Evaluar campos especiales (computed o textstatic)
     if (str_starts_with($key, '#') || in_array($f['type'] ?? '', ['computed', 'textstatic'])) {
         $contenido = evaluarExpresion($f['valor'] ?? '', $values);
-        if (!($zzhidden )) {
+        if (!($f['hidden'] ?? false)) {
             echo "<div class='col-12 {$bgClass}'>";
             echo "<div class='" . ($f['class'] ?? 'alert alert-secondary') . "'>";
             echo htmlspecialchars($contenido);
@@ -39,7 +43,7 @@ $rowcnt = 0;
     }
 ?>
 
-<?php if (($zzhidden) == true): ?>
+<?php if (($f['hidden']) == true): ?>
     <input type="hidden" id="<?= $this->e($f['nombre']) ?>" name="<?= $this->e($f['nombre']) ?>" 
         value="<?= $this->e($values[$f['nombre']] ?? '') ?>" > 
 <?php else: ?>
@@ -65,28 +69,48 @@ $rowcnt = 0;
                 <input type="checkbox" class="form-check-input" name="<?= $f['nombre'] ?>" id="<?= $f['nombre'] ?>" 
                 <?= $values[$f['nombre']] ? 'checked' : '' ?> >
             <?php break;   
-            case 'decimal':
-                $readonly = ($f['readonly'] ?? false) ? 'readonly' : '';
-                $attr_required = ($f['required'] ?? false) ? 'required' : '';
-                $placeholder_val = $f['placeholder'] ?? '';
-                $attr_placeholder = (!empty($placeholder_val)) ? 'placeholder="' . htmlspecialchars($placeholder_val) . '"' : '';
-                $attr_step = ($f['step'] ?? false) ? "step='" . htmlspecialchars($f['step']) . "'" : '';
+            case 'decimal': 
+                if ($f['readonly'] ?? false) {
+                    $readonly = ($f['readonly'] ?? false) ? 'readonly' : '';
+                    $attr_required = '';
+                    $placehold =  '';
+
+                } else {
+                    $readonly = ($f['readonly'] ?? false) ? 'readonly' : '';
+                    $attr_required = ($f['required'] ?? false) ? 'required' : '';
+                    $placehold = ($f['placeholder'] ?? false) ? $f['placeholder'] : '';
+                }
+
+                $attr_class = $f['class'] ?? 'form-control';
+                $attr_class = str_replace('form-control', '', $attr_class);
+                $attr_class = trim($attr_class);
+                $attr_step = ($f['step'] ?? false) ? "step='{$f['step']}'" : '';
 
                 ?>
-                <input type="number" <?= $attr_step ?> class="form-control" name="<?= htmlspecialchars($f['nombre']) ?>" id="<?= htmlspecialchars($f['nombre']) ?>"
-                    value="<?= htmlspecialchars($values[$f['nombre']] ?? '') ?>" <?= $attr_required ?> <?= $readonly ?> <?= $attr_placeholder ?> >
+                <input type="number" <?= $attr_step ?> class="form-control" name="<?= $f['nombre'] ?>" id="<?= $f['nombre'] ?>" 
+                    value="<?= $values[$f['nombre']] ?>" <?= $attr_required ?> <?= $readonly ?> <?= $placehold ?> >
 
             <?php break;   
-            case 'number':
-                $readonly = ($f['readonly'] ?? false) ? 'readonly' : '';
-                $attr_required = ($f['required'] ?? false) ? 'required' : '';
-                $placeholder_val = $f['placeholder'] ?? '';
-                $attr_placeholder = (!empty($placeholder_val)) ? 'placeholder="' . htmlspecialchars($placeholder_val) . '"' : '';
-                $attr_step = ($f['step'] ?? false) ? "step='" . htmlspecialchars($f['step']) . "'" : '';
+            case 'number': 
+                if ($f['readonly'] ?? false) {
+                    $readonly = ($f['readonly'] ?? false) ? 'readonly' : '';
+                    $attr_required = '';
+                    $placehold =  '';
+
+                } else {
+                    $readonly = ($f['readonly'] ?? false) ? 'readonly' : '';
+                    $attr_required = ($f['required'] ?? false) ? 'required' : '';
+                    $placehold = ($f['placeholder'] ?? false) ? $f['placeholder'] : '';
+                }
+
+                $attr_class = $f['class'] ?? 'form-control';
+                $attr_class = str_replace('form-control', '', $attr_class);
+                $attr_class = trim($attr_class);
+
 
                 ?>
-                <input type="number" <?= $attr_step ?> class="form-control" name="<?= htmlspecialchars($f['nombre']) ?>" id="<?= htmlspecialchars($f['nombre']) ?>"
-                    value="<?= htmlspecialchars($values[$f['nombre']] ?? '') ?>" <?= $attr_required ?> <?= $readonly ?> <?= $attr_placeholder ?> >
+                <input type="number" class="form-control" name="<?= $f['nombre'] ?>" id="<?= $f['nombre'] ?>" 
+                    value="<?= $values[$f['nombre']] ?>" <?= $attr_required ?> <?= $readonly ?> <?= $placehold ?> >
             <?php break;   
             case 'time': ?>
                 <input type="time" class="form-control" name="<?= $f['nombre'] ?>" id="<?= $f['nombre'] ?>"  value="<?= $values[$f['nombre']] ?>">
@@ -196,7 +220,7 @@ $rowcnt = 0;
         <button type="submit" class="<?= $this->e($button['class']) ?>">
             <i class="<?= $this->e($button['icon']) ?>"></i> <?= $this->e($button['text']) ?> 
         </button>
-    <?php elseif ($button['backbutton'] ?? false): ?>
+    <?php elseif ($button['backbutton'] == true): ?>
         <button type="button" class="<?= $this->e($button['class']) ?>" onclick="window.history.go(-1);">
             <i class="<?= $this->e($button['icon']) ?>"></i> <?= $this->e($button['text']) ?>
         </button>
