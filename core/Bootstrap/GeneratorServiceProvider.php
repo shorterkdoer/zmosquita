@@ -12,6 +12,7 @@ use ZMosquita\Core\Generators\Crud\CrudGenerator;
 use ZMosquita\Core\Generators\Crud\CrudScaffoldWriter;
 use ZMosquita\Core\Generators\Crud\RelationLabelResolver;
 use ZMosquita\Core\Generators\Crud\RelationOptionResolver;
+use ZMosquita\Core\Generators\DataDefMeta\DataDefMetaGenerator;
 use ZMosquita\Core\Generators\MasterDetail\MasterDetailGenerator;
 use ZMosquita\Core\Generators\MasterDetail\MasterDetailScaffoldWriter;
 use ZMosquita\Core\Generators\MasterDetail\RelationInspector;
@@ -60,6 +61,10 @@ final class GeneratorServiceProvider extends ServiceProvider
             $c->get(DefinitionNormalizer::class),
             $c->get(RelationInspector::class),
             $c->get(MasterDetailScaffoldWriter::class)
+        ));
+
+        $this->container->bind(DataDefMetaGenerator::class, fn ($c) => new DataDefMetaGenerator(
+            $c->get(DefinitionNormalizer::class)
         ));
     }
 }

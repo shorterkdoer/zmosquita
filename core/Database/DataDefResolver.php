@@ -13,22 +13,48 @@ final class DataDefResolver
     {
         $path = Paths::coreDataDef($this->normalize($name));
 
-        if (!is_file($path)) {
-            throw new RuntimeException("Core datadef file not found: $path");
+        if (is_file($path)) {
+            return $path;
         }
 
-        return $path;
+        // Try to find a file matching pattern *_{name}.sql
+        // Remove .sql for glob pattern, add it back later
+        $nameWithoutExt = str_ends_with($name, '.sql') ? substr($name, 0, -4) : $name;
+        $pattern = rtrim(Paths::coreDataDef(''), '/') . '/';
+        $globPattern = $pattern . '*' . $nameWithoutExt . '.sql';
+        $files = glob($globPattern) ?: [];
+
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                return $file;
+            }
+        }
+
+        throw new RuntimeException("Core datadef file not found: $path");
     }
 
     public function app(string $appCode, string $name): string
     {
         $path = Paths::appDataDef($appCode, $this->normalize($name));
 
-        if (!is_file($path)) {
-            throw new RuntimeException("App datadef file not found: $path");
+        if (is_file($path)) {
+            return $path;
         }
 
-        return $path;
+        // Try to find a file matching pattern *_{name}.sql
+        // Remove .sql for glob pattern, add it back later
+        $nameWithoutExt = str_ends_with($name, '.sql') ? substr($name, 0, -4) : $name;
+        $pattern = rtrim(Paths::appDataDef($appCode, ''), '/') . '/';
+        $globPattern = $pattern . '*' . $nameWithoutExt . '.sql';
+        $files = glob($globPattern) ?: [];
+
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                return $file;
+            }
+        }
+
+        throw new RuntimeException("App datadef file not found: $path");
     }
 
     public function allCore(): array

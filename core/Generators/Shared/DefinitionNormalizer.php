@@ -115,7 +115,8 @@ final class DefinitionNormalizer
 
     private function extractTableName(string $createSql): string
     {
-        if (preg_match('/CREATE\s+TABLE\s+`?([a-zA-Z0-9_]+)`?\s*\(/i', $createSql, $matches)) {
+        // Try CREATE TABLE IF NOT EXISTS first
+        if (preg_match('/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([a-zA-Z0-9_]+)`?\s*\(/i', $createSql, $matches)) {
             return $matches[1];
         }
 

@@ -27,6 +27,21 @@ beta_db                    (Catálogo del tenant BETA)
 
 ## Guías Disponibles
 
+### [Deployment en Servidor](./deployment-servidor.md)
+
+Guía completa para sysadmins para instalar ZMosquita en un servidor Ubuntu en producción.
+
+**Contenido:**
+- Instalación de stack LAMP (Linux, Apache, MariaDB, PHP)
+- Clonado desde GitHub
+- Configuración de base de datos
+- Configuración de Apache VirtualHost
+- SSL/TLS con Let's Encrypt
+- Backup automatizado
+- Monitoreo y troubleshooting
+
+**Ideal para:** Primer deployment en servidor nuevo.
+
 ### [Deployment de Tenant](./deployment-tenant.md)
 
 Guía completa para crear y desplegar un nuevo tenant en el sistema.
@@ -64,6 +79,38 @@ php bin/zmosquita install:app <appCode>
 php bin/zmosquita make:crud app <appCode> <recurso>
 ```
 
+### [Generación de DataDefMeta](./generacion-datadefmeta.md)
+
+Guía para generar automáticamente archivos de metadatos desde SQL.
+
+**Contenido:**
+- Comando `make:datadefmeta`
+- Análisis automático de SQL
+- Inferencia de tipos y reglas
+- Personalización post-generación
+- Flujo de trabajo completo
+
+**Comandos clave:**
+```bash
+php bin/zmosquita make:datadefmeta app <appCode> <recurso>
+php bin/zmosquita make:datadefmeta core <recurso>
+```
+
+**Contenido:**
+- Estructura de directorios de aplicaciones
+- Reglas de diseño database-per-tenant
+- Convenciones de nomenclatura
+- Creación de scripts SQL (datadef)
+- Datos iniciales (initialseeds)
+- Instalación en catálogo IAM
+- Generación de CRUD
+
+**Comandos clave:**
+```bash
+php bin/zmosquita install:app <appCode>
+php bin/zmosquita make:crud app <appCode> <recurso>
+```
+
 ### [Deployment de Aplicación para Tenant](./deployment-aplicacion-tenant.md)
 
 Guía para desplegar una aplicación específica en un tenant existente.
@@ -83,6 +130,17 @@ php bin/zmosquita tenant:app:install <tenantCode> <appCode>
 
 ## Flujo de Trabajo Completo
 
+### 0. Instalar en servidor (primera vez)
+
+```bash
+# Ver guía: deployment-servidor.md
+# - Instalar stack LAMP
+# - Clonar desde GitHub
+# - Configurar base de datos
+# - Configurar Apache
+# - Ejecutar install:core
+```
+
 ### 1. Crear una nueva aplicación
 
 ```bash
@@ -91,6 +149,12 @@ mkdir -p applications/mi-app/datadef
 mkdir -p applications/mi-app/initialseeds
 # Crear scripts SQL...
 php bin/zmosquita install:app mi-app
+
+# Generar metadatos para cada tabla
+php bin/zmosquita make:datadefmeta app mi-app clientes
+
+# Generar CRUD
+php bin/zmosquita make:crud app mi-app clientes
 ```
 
 ### 2. Crear un nuevo tenant
@@ -135,6 +199,10 @@ php bin/zmosquita tenant:app:install <tenantCode> <appCode>
 ### Generadores
 
 ```bash
+# Generar metadatos desde SQL (paso previo a CRUD)
+php bin/zmosquita make:datadefmeta app <appCode> <recurso>
+php bin/zmosquita make:datadefmeta core <recurso>
+
 # Generar CRUD completo
 php bin/zmosquita make:crud app <appCode> <recurso>
 

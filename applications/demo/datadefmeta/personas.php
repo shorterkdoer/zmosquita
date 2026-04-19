@@ -2,9 +2,10 @@
 
 return [
     'labels' => [
+        'id' => 'Id',
         'apellido' => 'Apellido',
         'nombre' => 'Nombre',
-        'telefono' => 'Teléfono',
+        'telefono' => 'Telefono',
         'email' => 'Correo electrónico',
         'observaciones' => 'Observaciones',
     ],
@@ -21,14 +22,20 @@ return [
 
     'table' => [
         'columns' => [
+            'id',
             'apellido',
             'nombre',
             'telefono',
             'email',
+            'observaciones',
         ],
     ],
 
     'fields' => [
+        'id' => [
+            'type' => 'number',
+            'rules' => ['required', 'integer'],
+        ],
         'apellido' => [
             'type' => 'text',
             'rules' => ['required', 'max:100'],
@@ -38,16 +45,16 @@ return [
             'rules' => ['required', 'max:100'],
         ],
         'telefono' => [
-            'type' => 'text',
+            'type' => 'tel',
             'rules' => ['nullable', 'max:50'],
         ],
         'email' => [
-            'type' => 'text',
-            'rules' => ['nullable', 'email', 'max:190'],
+            'type' => 'email',
+            'rules' => ['nullable', 'max:190'],
         ],
         'observaciones' => [
             'type' => 'textarea',
-            'rules' => ['nullable', 'max:2000'],
+            'rules' => ['nullable', 'max:65535'],
         ],
     ],
 
