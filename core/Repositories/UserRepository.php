@@ -6,7 +6,6 @@ namespace ZMosquita\Core\Repositories;
 
 use ZMosquita\Core\Database\QueryBuilder;
 use ZMosquita\Core\Database\TableResolver;
-use ZMosquita\Core\Database\QueryBuilder;
 
 final class UserRepository
 {

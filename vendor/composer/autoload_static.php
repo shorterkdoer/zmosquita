@@ -25,6 +25,7 @@ class ComposerStaticInit2185d2f99bcd56787481d9357a5972d3
         'Z' =>
         array (
             'ZipStream\\' => 10,
+            'ZMosquita\\Core\\' => 15,
         ),
         'S' =>
         array (
@@ -86,6 +87,7 @@ class ComposerStaticInit2185d2f99bcd56787481d9357a5972d3
         ),
         'A' =>
         array (
+            'Applications\\' => 13,
             'App\\Tests\\' => 10,
             'App\\' => 4,
         ),
@@ -99,6 +101,10 @@ class ComposerStaticInit2185d2f99bcd56787481d9357a5972d3
         'ZipStream\\' =>
         array (
             0 => __DIR__ . '/..' . '/maennchen/zipstream-php/src',
+        ),
+        'ZMosquita\\Core\\' =>
+        array (
+            0 => __DIR__ . '/../..' . '/core',
         ),
         'Symfony\\Polyfill\\Php80\\' =>
         array (
@@ -224,6 +230,10 @@ class ComposerStaticInit2185d2f99bcd56787481d9357a5972d3
         'BaconQrCode\\' =>
         array (
             0 => __DIR__ . '/..' . '/bacon/bacon-qr-code/src',
+        ),
+        'Applications\\' =>
+        array (
+            0 => __DIR__ . '/../..' . '/applications',
         ),
         'App\\Tests\\' =>
         array (

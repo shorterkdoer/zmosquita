@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 use ZMosquita\Core\Database\Schema\AppSchemaInstaller;
 use ZMosquita\Core\Database\Schema\CoreSchemaInstaller;
+use ZMosquita\Core\Database\Schema\TenantSchemaInstaller;
 use ZMosquita\Core\Generators\Crud\CrudGenerator;
 use ZMosquita\Core\Generators\MasterDetail\MasterDetailGenerator;
 use ZMosquita\Core\Generators\Shared\GeneratorContext;
@@ -33,6 +34,22 @@ try {
 
         case 'install:app':
             installApp($positionals);
+            break;
+
+        case 'tenant:make':
+            makeTenant($positionals, $options);
+            break;
+
+        case 'tenant:app:install':
+            installTenantApp($positionals, $options);
+            break;
+
+        case 'tenant:drop':
+            dropTenant($positionals, $options);
+            break;
+
+        case 'tenant:list':
+            listTenants();
             break;
 
         case 'make:crud':
@@ -214,6 +231,159 @@ function makeMasterDetail(array $positionals, array $options): void
     echo "Master-Detail procesado correctamente.\n";
 }
 
+function makeTenant(array $positionals, array $options): void
+{
+    $code = $positionals[1] ?? null;
+    $name = $positionals[2] ?? null;
+    $catalog = $positionals[3] ?? $code;
+
+    if (!$code || !$name) {
+        throw new InvalidArgumentException('Uso: tenant:make <code> <name> [catalog]');
+    }
+
+    $installer = Container::instance()->get(TenantSchemaInstaller::class);
+
+    echo "Creando tenant: {$code} ({$name}) en catálogo [{$catalog}]...\n";
+
+    if ($installer->tenantExists($catalog)) {
+        throw new RuntimeException("El catálogo [{$catalog}] ya existe.");
+    }
+
+    $installer->createTenantCatalog($catalog);
+    echo "✓ Catálogo [{$catalog}] creado.\n";
+
+    echo "Instalando core schema en catálogo [{$catalog}]...\n";
+    $result = $installer->installCoreToTenant($catalog, withSeeds: true);
+
+    if (!$result->ok) {
+        echo "✗ Falló la instalación del core en el tenant.\n";
+        print_r($result->errors);
+        exit(1);
+    }
+
+    echo "✓ Core schema instalado en tenant.\n";
+
+    $iam = Container::instance()->get(\ZMosquita\Core\Database\Connection::class);
+    $iam = $iam->iam();
+
+    $now = date('Y-m-d H:i:s');
+    $iam->execute(
+        "INSERT INTO iam_tenants (code, name, catalog, status, created_at, updated_at)
+         VALUES (:code, :name, :catalog, 'active', :now, :now)",
+        ['code' => $code, 'name' => $name, 'catalog' => $catalog, 'now' => $now]
+    );
+
+    echo "✓ Tenant registrado en iam_tenants.\n";
+    echo "\nTenant creado correctamente: {$code} ({$name}) en [{$catalog}]\n";
+}
+
+function installTenantApp(array $positionals, array $options): void
+{
+    $tenantCode = $positionals[1] ?? null;
+    $appCode = $positionals[2] ?? null;
+
+    if (!$tenantCode || !$appCode) {
+        throw new InvalidArgumentException('Uso: tenant:app:install <tenantCode> <appCode>');
+    }
+
+    $iam = Container::instance()->get(\ZMosquita\Core\Database\Connection::class);
+    $iam = $iam->iam();
+
+    $tenant = $iam->fetchOne(
+        "SELECT id, code, name, catalog FROM iam_tenants WHERE code = :code AND deleted_at IS NULL",
+        ['code' => $tenantCode]
+    );
+
+    if (!$tenant) {
+        throw new RuntimeException("Tenant [{$tenantCode}] no encontrado.");
+    }
+
+    $installer = Container::instance()->get(TenantSchemaInstaller::class);
+
+    echo "Instalando app [{$appCode}] en tenant [{$tenantCode}] (catálogo: {$tenant['catalog']})...\n";
+
+    $result = $installer->installAppToTenant($tenant['catalog'], $appCode, withSeeds: true);
+
+    if (!$result->ok) {
+        echo "✗ Falló la instalación de la app.\n";
+        print_r($result->errors);
+        exit(1);
+    }
+
+    echo "✓ App [{$appCode}] instalada correctamente.\n";
+}
+
+function dropTenant(array $positionals, array $options): void
+{
+    $catalog = $positionals[1] ?? null;
+    $force = (bool)($options['force'] ?? false);
+
+    if (!$catalog) {
+        throw new InvalidArgumentException('Uso: tenant:drop <catalog> [--force]');
+    }
+
+    if (!$force) {
+        echo "ADVERTENCIA: Esto eliminará todo el catálogo [{$catalog}].\n";
+        echo "Para confirmar, usa --force\n";
+        exit(1);
+    }
+
+    $installer = Container::instance()->get(TenantSchemaInstaller::class);
+
+    echo "Eliminando catálogo [{$catalog}]...\n";
+
+    if ($installer->dropTenantCatalog($catalog, force: true)) {
+        echo "✓ Catálogo [{$catalog}] eliminado.\n";
+    } else {
+        echo "✗ No se pudo eliminar el catálogo.\n";
+        exit(1);
+    }
+
+    $iam = Container::instance()->get(\ZMosquita\Core\Database\Connection::class);
+    $iam = $iam->iam();
+
+    $now = date('Y-m-d H:i:s');
+    $iam->execute(
+        "UPDATE iam_tenants SET deleted_at = :now, updated_at = :now WHERE catalog = :catalog",
+        ['catalog' => $catalog, 'now' => $now]
+    );
+
+    echo "✓ Tenant marcado como eliminado.\n";
+}
+
+function listTenants(): void
+{
+    $iam = Container::instance()->get(\ZMosquita\Core\Database\Connection::class);
+    $iam = $iam->iam();
+
+    $tenants = $iam->fetchAll(
+        "SELECT id, code, name, catalog, status, created_at FROM iam_tenants WHERE deleted_at IS NULL ORDER BY name ASC"
+    );
+
+    if (empty($tenants)) {
+        echo "No hay tenants registrados.\n";
+        return;
+    }
+
+    echo "\nTenants registrados:\n\n";
+    echo str_pad('ID', 6) . ' ';
+    echo str_pad('Código', 20) . ' ';
+    echo str_pad('Nombre', 30) . ' ';
+    echo str_pad('Catálogo', 25) . ' ';
+    echo str_pad('Estado', 10) . "\n";
+    echo str_repeat('-', 110) . "\n";
+
+    foreach ($tenants as $tenant) {
+        echo str_pad((string)$tenant['id'], 6) . ' ';
+        echo str_pad($tenant['code'], 20) . ' ';
+        echo str_pad(substr($tenant['name'], 0, 30), 30) . ' ';
+        echo str_pad($tenant['catalog'], 25) . ' ';
+        echo str_pad($tenant['status'], 10) . "\n";
+    }
+
+    echo "\nTotal: " . count($tenants) . " tenant(s)\n";
+}
+
 /**
  * @return array<string, mixed>
  */
@@ -267,6 +437,21 @@ Comandos:
   install:app <appCode>
       Instala el esquema de una app desde applications/<appCode>/datadef/*.sql
 
+  tenant:make <code> <name> <catalog>
+      Crea un nuevo tenant con catálogo separado
+
+  tenant:make <code> <name>
+      Crea un nuevo tenant usando el code como nombre de catálogo
+
+  tenant:app:install <tenantCode> <appCode>
+      Instala una aplicación en el catálogo del tenant
+
+  tenant:drop <catalog> [--force]
+      Elimina el catálogo de un tenant (peligroso)
+
+  tenant:list
+      Lista todos los tenants registrados
+
   make:crud core <resource> [--force] [--dry-run] [--only=controller|model|validator|views|routes]
       Genera CRUD para un recurso core
 
@@ -282,6 +467,11 @@ Comandos:
 Ejemplos:
   php bin/zmosquita install:core
   php bin/zmosquita install:app clinica
+  php bin/zmosquita tenant:make acme "ACME Corp" acme_db
+  php bin/zmosquita tenant:make acme "ACME Corp"
+  php bin/zmosquita tenant:app:install acme contabilidad
+  php bin/zmosquita tenant:list
+  php bin/zmosquita tenant:drop acme_db --force
   php bin/zmosquita make:crud app clinica pacientes
   php bin/zmosquita make:crud app clinica pacientes --only=model
   php bin/zmosquita make:crud app clinica pacientes --force

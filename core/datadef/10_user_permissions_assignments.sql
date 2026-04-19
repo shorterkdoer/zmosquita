@@ -1,0 +1,22 @@
+CREATE TABLE user_permission_assignments (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    permission_id BIGINT UNSIGNED NOT NULL,
+    scope_type ENUM('global','tenant','tenant_app') NOT NULL,
+    tenant_id BIGINT UNSIGNED NULL,
+    app_id BIGINT UNSIGNED NULL,
+    effect ENUM('allow') NOT NULL DEFAULT 'allow',
+    status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+    assigned_by BIGINT UNSIGNED NULL,
+    assigned_at DATETIME NOT NULL,
+    expires_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    KEY idx_upa_lookup (user_id, status, scope_type, tenant_id, app_id),
+    KEY idx_upa_permission (permission_id),
+    CONSTRAINT fk_upa_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_upa_permission FOREIGN KEY (permission_id) REFERENCES permissions(id),
+    CONSTRAINT fk_upa_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+    CONSTRAINT fk_upa_app FOREIGN KEY (app_id) REFERENCES applications(id),
+    CONSTRAINT fk_upa_assigned_by FOREIGN KEY (assigned_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

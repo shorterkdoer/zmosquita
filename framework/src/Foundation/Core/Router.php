@@ -30,6 +30,8 @@ class Router
     {
         $requestUri = self::normalizeUri(parse_url($requestUri, PHP_URL_PATH));
 
+        // Get current application namespace
+        $appNamespace = $_SESSION['current_app_namespace'] ?? 'App';
 
         foreach (self::$routes as $route) {
             $pattern = "@^" . preg_replace('/\{[^\}]+\}/', '([^/]+)', $route['uri']) . "$@";
@@ -39,19 +41,48 @@ class Router
 
                 // Ejecutar middlewares
                 foreach ($route['middlewares'] as $middleware) {
-                    $middlewareInstance = new $middleware();
-                    if (method_exists($middlewareInstance, 'handle')) {
-                        $middlewareInstance->handle();
+                    // Resolve middleware namespace if not fully qualified
+                    $middlewareClass = $middleware;
+                    if (strpos($middleware, '\\') === false) {
+                        // Try current app namespace first, then App namespace
+                        $middlewareClass = "$appNamespace\\Middlewares\\$middleware";
+                        if (!class_exists($middlewareClass)) {
+                            $middlewareClass = "App\\Middlewares\\$middleware";
+                        }
+                    }
+
+                    if (class_exists($middlewareClass)) {
+                        $middlewareInstance = new $middlewareClass();
+                        if (method_exists($middlewareInstance, 'handle')) {
+                            $middlewareInstance->handle();
+                        }
                     }
                 }
 
                 [$controller, $method] = $route['action'];
-                $controllerInstance = new $controller();
+
+                // Resolve controller namespace if not fully qualified
+                $controllerClass = $controller;
+                if (strpos($controller, '\\') === false) {
+                    // Try current app namespace first
+                    $controllerClass = "$appNamespace\\Controllers\\$controller";
+                    if (!class_exists($controllerClass)) {
+                        // Fall back to App namespace for shared controllers
+                        $controllerClass = "App\\Controllers\\$controller";
+                    }
+                }
+
+                if (!class_exists($controllerClass)) {
+                    http_response_code(500);
+                    echo "Controlador no encontrado: $controllerClass";
+                    return;
+                }
+
+                $controllerInstance = new $controllerClass();
 
                 if (!method_exists($controllerInstance, $method)) {
-                    echo "Método no encontrado: $method";
                     http_response_code(500);
-                    echo "Método no encontrado: $method";
+                    echo "Método no encontrado: $method en $controllerClass";
                     return;
                 }
                 $request = new Request();

@@ -8,6 +8,7 @@ error_reporting(E_ALL);
 require_once 'vendor/autoload.php';
 
 use Foundation\Core\CSRF;
+use Foundation\Core\AppManager;
 
 // Start session with secure configuration
 if (session_status() === PHP_SESSION_NONE) {
@@ -20,21 +21,37 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Set base directory
-
 $_SESSION['directoriobase'] = __DIR__;
-$_SESSION['base_pathviews'] = $_SESSION['directoriobase'] . '/views';
+
+// Detect the current application based on subdomain
+$currentApp = AppManager::detectApplication();
+
+// Set application-specific paths
+$_SESSION['base_pathviews'] = AppManager::getViewsPath();
 $_SESSION['base_url'] = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+$_SESSION['current_app'] = $currentApp;
+$_SESSION['current_app_namespace'] = AppManager::getAppNamespace();
+$_SESSION['current_app_base_path'] = AppManager::getAppBasePath();
 
 $dotenv = Dotenv\Dotenv::createImmutable($_SESSION['directoriobase'] . "/");
 $dotenv->load();
+
 // Load configuration and routes
 use Foundation\Core\Router;
 $config = require 'config/settings.php';
 
+// Allow app-specific config to override global config
+$appConfig = AppManager::getCurrentAppConfig();
+if ($appConfig && isset($appConfig['config'])) {
+    $config = array_merge($config, $appConfig['config']);
+}
+
 $_SESSION['Title'] = $config['title'];
 $_SESSION['Subtitle'] = $config['subtitle'];
 
-require_once 'config/routes.php';
+// Load routes for the current application
+require_once AppManager::getRoutesFile();
+
 //$templates = new League\Plates\Engine($_SESSION['base_pathviews']);
 //$templates->addData(['csrf' => $csrf]); // 👈 clave
 

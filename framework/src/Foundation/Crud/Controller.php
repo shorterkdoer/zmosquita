@@ -23,7 +23,8 @@ abstract class Controller
     public function __construct()
     {
         if (isset($_SESSION['directoriobase'])) {
-            $this->viewEngine = new Engine($_SESSION['directoriobase'] . '/views');
+            $viewsPath = $_SESSION['base_pathviews'] ?? $_SESSION['directoriobase'] . '/views';
+            $this->viewEngine = new Engine($viewsPath);
         }
     }
 
@@ -37,7 +38,8 @@ abstract class Controller
     protected function view(string $template, array $data = []): void
     {
         if ($this->viewEngine === null) {
-            $this->viewEngine = new Engine($_SESSION['directoriobase'] . '/views');
+            $viewsPath = $_SESSION['base_pathviews'] ?? $_SESSION['directoriobase'] . '/views';
+            $this->viewEngine = new Engine($viewsPath);
         }
         echo $this->viewEngine->render($template, $data);
         exit;

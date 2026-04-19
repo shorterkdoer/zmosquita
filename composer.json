@@ -2,7 +2,9 @@
     "autoload": {
         "psr-4": {
           "App\\": "app/",
-          "Foundation\\": "framework/src/Foundation/"
+          "Applications\\": "applications/",
+          "Foundation\\": "framework/src/Foundation/",
+          "ZMosquita\\Core\\": "core/"
         }
       },
     "autoload-dev": {
