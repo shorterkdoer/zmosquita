@@ -60,6 +60,28 @@ final class GeneratorPathResolver
         return Paths::application($context->appCode, 'routes.php');
     }
 
+    public function servicePath(GeneratorContext $context): string
+    {
+        $class = $this->studly($context->resourceName) . 'Service.php';
+
+        if ($context->isCore()) {
+            return Paths::core('Services/' . $class);
+        }
+
+        return Paths::application($context->appCode, 'Services/' . $class);
+    }
+
+    public function repositoryPath(GeneratorContext $context): string
+    {
+        $class = $this->studly($context->resourceName) . 'Repository.php';
+
+        if ($context->isCore()) {
+            return Paths::core('Repositories/' . $class);
+        }
+
+        return Paths::application($context->appCode, 'Repositories/' . $class);
+    }
+
     public function appBasePath(string $appCode): string
     {
         return Paths::application($appCode);
@@ -71,6 +93,8 @@ final class GeneratorPathResolver
             dirname($this->controllerPath($context)),
             dirname($this->modelPath($context)),
             dirname($this->validatorPath($context)),
+            dirname($this->servicePath($context)),
+            dirname($this->repositoryPath($context)),
             $this->viewsPath($context),
         ];
 

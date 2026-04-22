@@ -96,6 +96,10 @@ php bin/zmosquita make:datadefmeta app <appCode> <recurso>
 php bin/zmosquita make:datadefmeta core <recurso>
 ```
 
+### [Publicación de Aplicación](./publicacion-aplicacion.md)
+
+Guía para crear y publicar una nueva aplicación en el repositorio core.
+
 **Contenido:**
 - Estructura de directorios de aplicaciones
 - Reglas de diseño database-per-tenant
@@ -110,6 +114,20 @@ php bin/zmosquita make:datadefmeta core <recurso>
 php bin/zmosquita install:app <appCode>
 php bin/zmosquita make:crud app <appCode> <recurso>
 ```
+
+### [Organización de Código por Aplicación](./organizacion-codigo-aplicacion.md)
+
+Guía para organizar el código específico de cada aplicación.
+
+**Contenido:**
+- Estructura de directorios recomendada
+- Convenciones de namespaces PSR-4
+- Responsabilidades de cada capa (Controller, Service, Repository)
+- Service Layer pattern
+- Inyección de dependencias
+- Casos especiales y migración
+
+**Ideal para:** Desarrolladores escribiendo código específico de aplicación.
 
 ### [Deployment de Aplicación para Tenant](./deployment-aplicacion-tenant.md)
 
@@ -199,6 +217,10 @@ php bin/zmosquita tenant:app:install <tenantCode> <appCode>
 ### Generadores
 
 ```bash
+# Generar Service y Repository
+php bin/zmosquita make:service app <appCode> <recurso>
+php bin/zmosquita make:service core <recurso>
+
 # Generar metadatos desde SQL (paso previo a CRUD)
 php bin/zmosquita make:datadefmeta app <appCode> <recurso>
 php bin/zmosquita make:datadefmeta core <recurso>

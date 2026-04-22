@@ -9,6 +9,7 @@ use ZMosquita\Core\Database\Schema\TenantSchemaInstaller;
 use ZMosquita\Core\Generators\Crud\CrudGenerator;
 use ZMosquita\Core\Generators\DataDefMeta\DataDefMetaGenerator;
 use ZMosquita\Core\Generators\MasterDetail\MasterDetailGenerator;
+use ZMosquita\Core\Generators\ServiceLayer\ServiceLayerGenerator;
 use ZMosquita\Core\Generators\Shared\GeneratorContext;
 use ZMosquita\Core\Support\Container;
 
@@ -63,6 +64,10 @@ try {
 
         case 'make:datadefmeta':
             makeDataDefMeta($positionals, $options);
+            break;
+
+        case 'make:service':
+            makeService($positionals, $options);
             break;
 
         case 'help':
@@ -273,6 +278,51 @@ function makeDataDefMeta(array $positionals, array $options): void
     echo $context->isCore()
         ? "core/datadefmeta/{$resource}.php\n"
         : "applications/{$context->appCode}/datadefmeta/{$resource}.php\n";
+}
+
+/**
+ * @param array<string, mixed> $options
+ */
+function makeService(array $positionals, array $options): void
+{
+    $scope = $positionals[1] ?? null;
+    $force = (bool)($options['force'] ?? false);
+    $dryRun = (bool)($options['dry-run'] ?? false);
+
+    if ($scope === 'core') {
+        $resource = $positionals[2] ?? null;
+        if (!$resource) {
+            throw new InvalidArgumentException('Uso: make:service core <resource> [--force] [--dry-run]');
+        }
+        $context = new GeneratorContext('core', null, $resource, $force, $dryRun);
+    } elseif ($scope === 'app') {
+        $appCode = $positionals[2] ?? null;
+        $resource = $positionals[3] ?? null;
+
+        if (!$appCode || !$resource) {
+            throw new InvalidArgumentException('Uso: make:service app <appCode> <resource> [--force] [--dry-run]');
+        }
+        $context = new GeneratorContext('app', $appCode, $resource, $force, $dryRun);
+    } else {
+        throw new InvalidArgumentException('Uso: make:service core <resource> | make:service app <appCode> <resource>');
+    }
+
+    $generator = Container::instance()->get(ServiceLayerGenerator::class);
+
+    echo "Generando Service Layer para {$context->qualifiedName()}...\n";
+
+    $generator->generateService($context);
+    $generator->generateRepository($context);
+
+    echo "✓ Service Layer generado correctamente:\n";
+    echo "  - Service: ";
+    echo $context->isCore()
+        ? "core/Services/{$context->resourceName}Service.php\n"
+        : "applications/{$context->appCode}/Services/{$context->resourceName}Service.php\n";
+    echo "  - Repository: ";
+    echo $context->isCore()
+        ? "core/Repositories/{$context->resourceName}Repository.php\n"
+        : "applications/{$context->appCode}/Repositories/{$context->resourceName}Repository.php\n";
 }
 
 function makeTenant(array $positionals, array $options): void
@@ -514,6 +564,12 @@ Comandos:
   make:datadefmeta app <appCode> <resource> [--force] [--dry-run]
       Genera archivo de metadatos para un recurso de app
 
+  make:service core <resource> [--force] [--dry-run]
+      Genera Service y Repository para un recurso core
+
+  make:service app <appCode> <resource> [--force] [--dry-run]
+      Genera Service y Repository para un recurso de app
+
 Ejemplos:
   php bin/zmosquita install:core
   php bin/zmosquita install:app clinica
@@ -531,6 +587,8 @@ Ejemplos:
   php bin/zmosquita make:datadefmeta app demo personas
   php bin/zmosquita make:datadefmeta app demo personas --force
   php bin/zmosquita make:datadefmeta app demo personas --dry-run
+  php bin/zmosquita make:service app demo personas
+  php bin/zmosquita make:service app demo personas --force
 
 TXT;
 }
