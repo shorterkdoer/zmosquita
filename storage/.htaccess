@@ -1,0 +1,10 @@
+Deny from all
+
+# Prevent directory listing
+Options -Indexes
+
+# Prevent execution of scripts in storage directory
+<FilesMatch "\.(php|phtml|php3|php4|php5|pl|py|jsp|asp|sh|cgi)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

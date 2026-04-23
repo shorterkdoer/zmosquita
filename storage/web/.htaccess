@@ -1,0 +1,3 @@
+Deny from all
+
+# Prevent any web access to storage directory

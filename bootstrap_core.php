@@ -7,6 +7,7 @@ use ZMosquita\Core\Bootstrap\AuthServiceProvider;
 use ZMosquita\Core\Bootstrap\DatabaseServiceProvider;
 use ZMosquita\Core\Bootstrap\GeneratorServiceProvider;
 use ZMosquita\Core\Bootstrap\HttpServiceProvider;
+use ZMosquita\Core\Bootstrap\StorageServiceProvider;
 use ZMosquita\Core\Support\Container;
 
 require_once __DIR__ . '/vendor/autoload.php';
@@ -30,4 +31,5 @@ $bootstrap->bootstrap(__DIR__, $config, [
     AuthServiceProvider::class,
     GeneratorServiceProvider::class,
     HttpServiceProvider::class,
+    StorageServiceProvider::class,
 ]);
